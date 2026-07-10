@@ -98,9 +98,9 @@ const ACTIVE_JOB_STATUSES: readonly JobStatus[] = Object.freeze([
 
 const ALLOWED_JOB_TRANSITIONS: Readonly<Record<JobStatus, readonly JobStatus[]>> =
   Object.freeze({
-    pending: ["preparing", "paused", "cancelled"],
+    pending: ["preparing", "paused", "cancelled", "failed"],
     preparing: ["pending", "running", "cancelled", "failed"],
-    running: ["pending", "paused", "cancelled", "completed", "failed"],
+    running: ["running", "pending", "paused", "cancelled", "completed", "failed"],
     paused: ["pending", "cancelled"],
     cancelled: [],
     completed: [],
