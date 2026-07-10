@@ -3,9 +3,9 @@ Nombre completo: EditorScreen.tsx
 Ruta o ubicación: /apps/desktop/renderer/src/screens/EditorScreen.tsx
 
 Función o funciones:
-- Integrar medios, línea de tiempo e inspector de clips.
-- Editar tiempo, audio, imagen, efectos y textos persistentes.
-- Previsualizar transformaciones, estilos y animaciones visuales.
+- Integrar medios, línea de tiempo, inspector y panel audiovisual.
+- Editar clips, mezcla, efectos, transiciones y sonidos persistentes.
+- Previsualizar transformaciones y efectos sin modificar originales.
 ========================================================= */
 
 import { useEffect } from "react";
@@ -30,6 +30,7 @@ import {
   type ClipTimingInput,
 } from "../components/timeline/ClipInspector";
 import { TimelineEditor } from "../components/timeline/TimelineEditor";
+import { TimelineExtrasPanel } from "../components/timeline/TimelineExtrasPanel";
 import { AppIcon } from "../components/ui/AppIcon";
 
 interface EditorScreenProps {
@@ -104,7 +105,6 @@ function EditorScreen({
   useEffect(() => {
     if (!project) return undefined;
     let cancelled = false;
-
     const refreshWhenNeeded = async (): Promise<void> => {
       const queueResult = await window.editar.jobs.getSnapshot();
       const hasActiveMediaJobs =
@@ -117,14 +117,12 @@ function EditorScreen({
               item.job.status,
             ),
         );
-
       if (pendingMediaCount === 0 && !hasActiveMediaJobs) return;
       const result = await window.editar.projects.open({
         projectId: project.project.id,
       });
       if (!cancelled && result.ok) onProjectChange(result.data);
     };
-
     const timer = window.setInterval(() => void refreshWhenNeeded(), 900);
     void refreshWhenNeeded();
     return () => {
@@ -146,7 +144,11 @@ function EditorScreen({
             Selecciona un proyecto guardado o crea uno nuevo para cargar su
             secuencia, pistas y recursos en el editor.
           </p>
-          <button className="primary-button" type="button" onClick={onChooseProject}>
+          <button
+            className="primary-button"
+            type="button"
+            onClick={onChooseProject}
+          >
             Elegir proyecto <AppIcon name="arrow" size={18} />
           </button>
         </section>
@@ -158,13 +160,19 @@ function EditorScreen({
     (total, asset) => total + asset.derivatives.length,
     0,
   );
-  const audioAnalysisCount = project.media.filter((asset) => asset.audioAnalysis).length;
-  const reducedCount = project.media.filter((asset) => asset.silenceReduction).length;
+  const audioAnalysisCount = project.media.filter(
+    (asset) => asset.audioAnalysis,
+  ).length;
+  const reducedCount = project.media.filter(
+    (asset) => asset.silenceReduction,
+  ).length;
   const selectedClip = project.clips.find(
     (clip) => clip.id === timeline.selectedClipId,
   );
   const selectedTextLayerId =
-    selectedClip?.source.type === "text" ? selectedClip.source.textLayerId : null;
+    selectedClip?.source.type === "text"
+      ? selectedClip.source.textLayerId
+      : null;
   const selectedTextLayer = selectedTextLayerId
     ? project.textLayers.find((layer) => layer.id === selectedTextLayerId)
     : undefined;
@@ -233,13 +241,16 @@ function EditorScreen({
   return (
     <div className="screen-stack screen-stack--editor">
       <section className="editor-notice">
-        <span className="editor-notice__icon"><AppIcon name="editor" /></span>
+        <span className="editor-notice__icon">
+          <AppIcon name="editor" />
+        </span>
         <div>
           <strong>{project.project.name}</strong>
           <small>
             {project.project.canvas.width} × {project.project.canvas.height} ·{" "}
             {project.project.canvas.aspectRatio} · {project.project.canvas.fps} FPS ·{" "}
-            {project.clips.length} clips · {project.effects.length} efectos
+            {project.clips.length} clips · {project.transitions.length} transiciones ·{" "}
+            {project.effects.length} efectos
           </small>
         </div>
         <span className={`project-status project-status--${project.project.status}`}>
@@ -256,8 +267,18 @@ function EditorScreen({
           className={`media-import-message ${timeline.errorMessage ? "media-import-message--error" : ""}`}
           role={timeline.errorMessage ? "alert" : "status"}
         >
-          <button type="button" aria-label="Cerrar mensaje" onClick={timeline.clearMessages}>×</button>
-          <strong>{timeline.errorMessage ? "La edición no pudo guardarse" : "Edición guardada"}</strong>
+          <button
+            type="button"
+            aria-label="Cerrar mensaje"
+            onClick={timeline.clearMessages}
+          >
+            ×
+          </button>
+          <strong>
+            {timeline.errorMessage
+              ? "La edición no pudo guardarse"
+              : "Edición guardada"}
+          </strong>
           <small>{timeline.errorMessage || timeline.message}</small>
         </div>
       ) : null}
@@ -274,33 +295,48 @@ function EditorScreen({
           audioActiveMediaId={audioProcessing.activeMediaId}
           audioOperation={audioProcessing.operation}
           analysisMessage={mediaAnalysis.message}
-          analysisErrorMessage={mediaAnalysis.errorMessage || mediaAnalysis.engine.errorMessage}
+          analysisErrorMessage={
+            mediaAnalysis.errorMessage || mediaAnalysis.engine.errorMessage
+          }
           cacheMessage={mediaCache.message}
           cacheErrorMessage={mediaCache.errorMessage}
           audioMessage={audioProcessing.message}
           audioErrorMessage={audioProcessing.errorMessage}
           onImport={() =>
-            void mediaImport.chooseAndImport(project.project.id).then(applyDocument)
+            void mediaImport
+              .chooseAndImport(project.project.id)
+              .then(applyDocument)
           }
           onAnalyze={(mediaId) =>
-            void mediaAnalysis.analyze(project.project.id, mediaId).then((accepted) => {
-              if (accepted) void refreshProject();
-            })
+            void mediaAnalysis
+              .analyze(project.project.id, mediaId)
+              .then((accepted) => {
+                if (accepted) void refreshProject();
+              })
           }
           onOptimize={(mediaId) =>
-            void mediaCache.generate(project.project.id, mediaId).then((result) => {
-              if (result) void refreshProject();
-            })
+            void mediaCache
+              .generate(project.project.id, mediaId)
+              .then((result) => {
+                if (result) void refreshProject();
+              })
           }
           onAnalyzeAudio={(mediaId) =>
-            void audioProcessing.analyze(project.project.id, mediaId).then((result) => {
-              if (result) void refreshProject();
-            })
+            void audioProcessing
+              .analyze(project.project.id, mediaId)
+              .then((result) => {
+                if (result) void refreshProject();
+              })
           }
-          onReduceSilence={(mediaId: EntityId<"media">, mode: SilenceReductionMode) =>
-            void audioProcessing.reduce(project.project.id, mediaId, mode).then((result) => {
-              if (result) void refreshProject();
-            })
+          onReduceSilence={(
+            mediaId: EntityId<"media">,
+            mode: SilenceReductionMode,
+          ) =>
+            void audioProcessing
+              .reduce(project.project.id, mediaId, mode)
+              .then((result) => {
+                if (result) void refreshProject();
+              })
           }
           onClearResult={mediaImport.clearResult}
           onClearAnalysisMessages={mediaAnalysis.clearMessages}
@@ -344,7 +380,10 @@ function EditorScreen({
                     </div>
                   ) : (
                     <div className="editor-monitor__media-placeholder">
-                      <AppIcon name={selectedClip.kind === "media" ? "editor" : "library"} size={30} />
+                      <AppIcon
+                        name={selectedClip.kind === "media" ? "editor" : "library"}
+                        size={30}
+                      />
                       <strong>{selectedClip.name}</strong>
                       <small>
                         {selectedVisual?.stylePresetId ?? "Sin efecto"} ·{" "}
@@ -356,13 +395,17 @@ function EditorScreen({
               ) : (
                 <>
                   <span className="editor-monitor__play">▶</span>
-                  <small>Selecciona un clip para previsualizar sus propiedades</small>
+                  <small>
+                    Selecciona un clip para previsualizar sus propiedades
+                  </small>
                 </>
               )}
             </div>
             <div className="editor-monitor__controls">
               <span>00:00:00:00</span>
-              <div className="editor-monitor__transport"><span>◀</span><span>▶</span><span>▶▶</span></div>
+              <div className="editor-monitor__transport">
+                <span>◀</span><span>▶</span><span>▶▶</span>
+              </div>
               <span>100%</span>
             </div>
           </div>
@@ -373,7 +416,9 @@ function EditorScreen({
             busy={timeline.operation !== null}
             onSelectClip={timeline.selectClip}
             onAddMedia={(mediaId) =>
-              void timeline.addMedia(project.project.id, mediaId).then(applyDocument)
+              void timeline
+                .addMedia(project.project.id, mediaId)
+                .then(applyDocument)
             }
             onAddText={(templateId) =>
               void timeline
@@ -394,6 +439,36 @@ function EditorScreen({
                 .then(applyDocument)
             }
           />
+
+          <TimelineExtrasPanel
+            project={project}
+            busy={timeline.operation !== null}
+            onSetTransition={(input) =>
+              void timeline
+                .setTransition(project.project.id, input)
+                .then(applyDocument)
+            }
+            onRemoveTransition={(transitionId) =>
+              void timeline
+                .removeTransition(project.project.id, transitionId)
+                .then(applyDocument)
+            }
+            onAddSoundEffect={(input) =>
+              void timeline
+                .addSoundEffect(project.project.id, input)
+                .then(applyDocument)
+            }
+            onUpdateSoundEffect={(effectId, input) =>
+              void timeline
+                .updateSoundEffect(project.project.id, effectId, input)
+                .then(applyDocument)
+            }
+            onDeleteSoundEffect={(effectId) =>
+              void timeline
+                .deleteSoundEffect(project.project.id, effectId)
+                .then(applyDocument)
+            }
+          />
         </div>
 
         <ClipInspector
@@ -402,19 +477,29 @@ function EditorScreen({
           busy={timeline.operation !== null}
           onSaveTiming={(clipId, input) => void saveClipTiming(clipId, input)}
           onSplit={(clipId, splitAtMs) =>
-            void timeline.split(project.project.id, clipId, splitAtMs).then(applyDocument)
+            void timeline
+              .split(project.project.id, clipId, splitAtMs)
+              .then(applyDocument)
           }
           onDelete={(clipId) =>
-            void timeline.remove(project.project.id, clipId).then(applyDocument)
+            void timeline
+              .remove(project.project.id, clipId)
+              .then(applyDocument)
           }
           onUpdateText={(clipId, input) =>
-            void timeline.updateText(project.project.id, clipId, input).then(applyDocument)
+            void timeline
+              .updateText(project.project.id, clipId, input)
+              .then(applyDocument)
           }
           onUpdateAudioMix={(clipId, input) =>
-            void timeline.updateAudioMix(project.project.id, clipId, input).then(applyDocument)
+            void timeline
+              .updateAudioMix(project.project.id, clipId, input)
+              .then(applyDocument)
           }
           onUpdateVisual={(clipId, input) =>
-            void timeline.updateVisual(project.project.id, clipId, input).then(applyDocument)
+            void timeline
+              .updateVisual(project.project.id, clipId, input)
+              .then(applyDocument)
           }
         />
       </section>
@@ -428,7 +513,7 @@ function EditorScreen({
           <p>
             {project.media.length} recursos · {audioAnalysisCount} audios analizados ·{" "}
             {reducedCount} versiones reducidas · {derivativeCount} derivados ·{" "}
-            {project.effects.length} efectos
+            {project.transitions.length} transiciones · {project.effects.length} efectos
           </p>
         </div>
       </section>

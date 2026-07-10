@@ -3,7 +3,7 @@ Nombre completo: timeline-editing-contracts.ts
 Ruta o ubicación: /apps/desktop/shared/timeline-editing-contracts.ts
 
 Función o funciones:
-- Definir operaciones públicas de clips, pistas, textos, audio y video.
+- Definir operaciones públicas de clips, pistas, audio, video y transiciones.
 - Compartir entradas tipadas entre renderer, preload y main.
 - Mantener milisegundos en IPC y microsegundos dentro del dominio.
 ========================================================= */
@@ -12,9 +12,12 @@ import type {
   AnimationEasing,
   EntityId,
   ProjectDocument,
+  SoundEffectPresetId,
   TextAnimationPresetId,
   TextStyle,
   TextTemplateId,
+  TransitionAlignment,
+  TransitionPresetId,
   VideoAnimationPresetId,
   VideoStylePresetId,
 } from "./domain/index.js";
@@ -114,6 +117,39 @@ interface UpdateClipVisualRequest extends TimelineProjectInput {
   readonly animationEasing: AnimationEasing;
 }
 
+interface SetTransitionRequest extends TimelineProjectInput {
+  readonly fromClipId: EntityId<"clip">;
+  readonly toClipId: EntityId<"clip">;
+  readonly presetId: TransitionPresetId;
+  readonly durationMs: number;
+  readonly alignment: TransitionAlignment;
+}
+
+interface RemoveTransitionRequest extends TimelineProjectInput {
+  readonly transitionId: EntityId<"transition">;
+}
+
+interface SoundEffectValuesRequest extends TimelineProjectInput {
+  readonly sequenceId: EntityId<"sequence">;
+  readonly presetId: SoundEffectPresetId;
+  readonly startMs: number;
+  readonly durationMs: number;
+  readonly gainDb: number;
+  readonly pan: number;
+  readonly fadeInMs: number;
+  readonly fadeOutMs: number;
+}
+
+interface AddSoundEffectRequest extends SoundEffectValuesRequest {}
+
+interface UpdateSoundEffectRequest extends SoundEffectValuesRequest {
+  readonly effectId: EntityId<"effect">;
+}
+
+interface DeleteSoundEffectRequest extends TimelineProjectInput {
+  readonly effectId: EntityId<"effect">;
+}
+
 interface TimelineEditingBridge {
   addMediaClip(input: AddMediaClipRequest): Promise<IpcResult<ProjectDocument>>;
   moveClip(input: MoveClipRequest): Promise<IpcResult<ProjectDocument>>;
@@ -133,14 +169,34 @@ interface TimelineEditingBridge {
   updateClipVisual(
     input: UpdateClipVisualRequest,
   ): Promise<IpcResult<ProjectDocument>>;
+  setTransition(
+    input: SetTransitionRequest,
+  ): Promise<IpcResult<ProjectDocument>>;
+  removeTransition(
+    input: RemoveTransitionRequest,
+  ): Promise<IpcResult<ProjectDocument>>;
+  addSoundEffect(
+    input: AddSoundEffectRequest,
+  ): Promise<IpcResult<ProjectDocument>>;
+  updateSoundEffect(
+    input: UpdateSoundEffectRequest,
+  ): Promise<IpcResult<ProjectDocument>>;
+  deleteSoundEffect(
+    input: DeleteSoundEffectRequest,
+  ): Promise<IpcResult<ProjectDocument>>;
 }
 
 export {
   type AddMediaClipRequest,
+  type AddSoundEffectRequest,
   type AddTextClipRequest,
   type ClipTransformPatch,
   type DeleteClipRequest,
+  type DeleteSoundEffectRequest,
   type MoveClipRequest,
+  type RemoveTransitionRequest,
+  type SetTransitionRequest,
+  type SoundEffectValuesRequest,
   type SplitClipRequest,
   type TextStylePatch,
   type TimelineEditingBridge,
@@ -148,6 +204,7 @@ export {
   type TrimClipRequest,
   type UpdateClipAudioMixRequest,
   type UpdateClipVisualRequest,
+  type UpdateSoundEffectRequest,
   type UpdateTextClipRequest,
   type UpdateTrackStateRequest,
 };

@@ -25,6 +25,7 @@
     "test:navigation": "node --test tests/navigation.test.mjs",
     "test:projects": "node --test tests/project-management.test.mjs",
     "test:timeline": "node --test tests/timeline-domain.test.mjs tests/timeline-editing.test.mjs",
+    "test:transitions": "node --test tests/transition-sound-domain.test.mjs tests/transition-sound-service.test.mjs",
     "clean": "node scripts/clean.mjs",
     "start": "npm run build && electron .",
     "verify": "npm run build && npm test"
