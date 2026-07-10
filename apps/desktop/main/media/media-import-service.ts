@@ -5,7 +5,7 @@ Ruta o ubicación: /apps/desktop/main/media/media-import-service.ts
 Función o funciones:
 - Importar rutas seleccionadas dentro de un proyecto.
 - Detectar duplicados por hash sin modificar los originales.
-- Guardar recursos válidos y devolver un resumen detallado.
+- Encolar análisis FFprobe sin bloquear ni invalidar la importación.
 ========================================================= */
 
 import { basename } from "node:path";
@@ -17,6 +17,7 @@ import {
   type MediaKind,
   type ProjectDocument,
 } from "../../shared/domain/index.js";
+import type { MediaAnalysisRequestResult } from "../../shared/media-engine-contracts.js";
 import type {
   MediaImportDuplicate,
   MediaImportRejection,
@@ -31,6 +32,13 @@ import {
 } from "./media-file-inspector.js";
 
 const MAX_FILES_PER_IMPORT = 100;
+
+interface MediaAnalysisScheduler {
+  enqueue(
+    projectId: EntityId<"project">,
+    mediaId: EntityId<"media">,
+  ): Promise<MediaAnalysisRequestResult>;
+}
 
 class MediaImportConflictError extends Error {
   constructor(message: string) {
@@ -48,6 +56,8 @@ function createSummary(
   imported: readonly MediaAsset[],
   duplicates: readonly MediaImportDuplicate[],
   rejected: readonly MediaImportRejection[],
+  analysisQueuedCount = 0,
+  analysisDeferredCount = 0,
   canceled = false,
 ): MediaImportSummary {
   const importedByKind = emptyKindCounter();
@@ -62,6 +72,8 @@ function createSummary(
     importedCount: imported.length,
     duplicateCount: duplicates.length,
     rejectedCount: rejected.length,
+    analysisQueuedCount,
+    analysisDeferredCount,
     importedByKind: Object.freeze(importedByKind),
   });
 }
@@ -72,12 +84,15 @@ function createCanceledResult(project: ProjectDocument): MediaImportResult {
     imported: Object.freeze([]),
     duplicates: Object.freeze([]),
     rejected: Object.freeze([]),
-    summary: createSummary(0, [], [], [], true),
+    summary: createSummary(0, [], [], [], 0, 0, true),
   });
 }
 
 class MediaImportService {
-  constructor(private readonly repository: ProjectRepository) {}
+  constructor(
+    private readonly repository: ProjectRepository,
+    private readonly analysisScheduler?: MediaAnalysisScheduler,
+  ) {}
 
   async createCanceledResult(
     projectId: EntityId<"project">,
@@ -189,6 +204,29 @@ class MediaImportService {
       });
     }
 
+    let analysisQueuedCount = 0;
+    let analysisDeferredCount = 0;
+
+    if (imported.length > 0) {
+      if (!this.analysisScheduler) {
+        analysisDeferredCount = imported.length;
+      } else {
+        const analysisResults = await Promise.allSettled(
+          imported.map((asset) =>
+            this.analysisScheduler?.enqueue(projectId, asset.id),
+          ),
+        );
+
+        for (const result of analysisResults) {
+          if (result.status === "fulfilled" && result.value?.queued) {
+            analysisQueuedCount += 1;
+          } else {
+            analysisDeferredCount += 1;
+          }
+        }
+      }
+    }
+
     return Object.freeze({
       project: updatedProject,
       imported: Object.freeze(imported),
@@ -199,6 +237,8 @@ class MediaImportService {
         imported,
         duplicates,
         rejected,
+        analysisQueuedCount,
+        analysisDeferredCount,
       ),
     });
   }
@@ -222,4 +262,5 @@ export {
   MediaImportService,
   createCanceledResult,
   createSummary,
+  type MediaAnalysisScheduler,
 };
