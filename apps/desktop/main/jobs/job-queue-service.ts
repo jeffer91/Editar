@@ -24,11 +24,11 @@ import type {
 } from "../../shared/job-queue-contracts.js";
 import type { JobQueueRepository } from "../../shared/persistence/job-queue-repository.js";
 import type { ProjectRepository } from "../../shared/persistence/project-repository.js";
+import type { JobExecutor } from "./job-executor.js";
 import {
   JobExecutionAbortedError,
   JobWorkerError,
 } from "./worker-thread-job-executor.js";
-import type { JobExecutor } from "./job-executor.js";
 
 interface JobQueueServiceOptions {
   readonly repository: JobQueueRepository;
@@ -40,7 +40,7 @@ interface JobQueueServiceOptions {
 
 interface ActiveExecution {
   readonly controller: AbortController;
-  readonly promise: Promise<void>;
+  promise: Promise<void>;
   desiredState: "paused" | "cancelled" | null;
 }
 
