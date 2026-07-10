@@ -3,8 +3,8 @@ Nombre completo: register-media-ipc.ts
 Ruta o ubicación: /apps/desktop/main/ipc/register-media-ipc.ts
 
 Función o funciones:
-- Abrir el selector nativo de archivos multimedia.
-- Exponer estado de FFmpeg/FFprobe y análisis por identificador.
+- Abrir el selector nativo y ejecutar operaciones multimedia.
+- Exponer análisis, derivados y diagnóstico de caché por IPC seguro.
 - Rechazar rutas y comandos enviados desde el renderer.
 ========================================================= */
 
@@ -20,6 +20,11 @@ import {
   type IpcResult,
 } from "../../shared/ipc-contracts.js";
 import type {
+  MediaCacheClearResult,
+  MediaCacheStatus,
+  MediaDerivativeRequestResult,
+} from "../../shared/media-cache-contracts.js";
+import type {
   MediaAnalysisRequestResult,
   MediaEngineStatus,
 } from "../../shared/media-engine-contracts.js";
@@ -29,11 +34,22 @@ import {
   MediaAnalysisService,
 } from "../media/media-analysis-service.js";
 import {
+  MediaCacheConflictError,
+  MediaCacheService,
+} from "../media/media-cache-service.js";
+import {
+  MediaDerivativeConflictError,
+  MediaDerivativeService,
+} from "../media/media-derivative-service.js";
+import {
   MediaImportConflictError,
   MediaImportService,
 } from "../media/media-import-service.js";
 import { SUPPORTED_MEDIA_EXTENSIONS } from "../media/media-file-inspector.js";
-import { parseAnalyzeMediaInput } from "../media/media-request-validation.js";
+import {
+  parseAnalyzeMediaInput,
+  parseGenerateMediaDerivativesInput,
+} from "../media/media-request-validation.js";
 import { ProjectNotFoundError } from "../projects/project-management-service.js";
 import { parseProjectIdInput } from "../projects/project-request-validation.js";
 import {
@@ -54,6 +70,8 @@ interface RegisterMediaIpcOptions {
   readonly trustedSources: TrustedSourceOptions;
   readonly mediaImportService: MediaImportService;
   readonly mediaAnalysisService: MediaAnalysisService;
+  readonly mediaDerivativeService: MediaDerivativeService;
+  readonly mediaCacheService: MediaCacheService;
 }
 
 const VIDEO_EXTENSIONS = ["mp4", "m4v", "mov", "mkv", "webm", "avi"];
@@ -84,7 +102,9 @@ function handleMediaError<T>(
 
   if (
     error instanceof MediaImportConflictError ||
-    error instanceof MediaAnalysisConflictError
+    error instanceof MediaAnalysisConflictError ||
+    error instanceof MediaDerivativeConflictError ||
+    error instanceof MediaCacheConflictError
   ) {
     return createFailure(requestId, "CONFLICT", error.message);
   }
@@ -121,12 +141,21 @@ async function chooseMediaFiles(
 }
 
 function registerMediaIpc(options: RegisterMediaIpcOptions): void {
-  const { trustedSources, mediaImportService, mediaAnalysisService } = options;
+  const {
+    trustedSources,
+    mediaImportService,
+    mediaAnalysisService,
+    mediaDerivativeService,
+    mediaCacheService,
+  } = options;
 
   for (const channel of [
     IPC_CHANNELS.mediaChooseAndImport,
     IPC_CHANNELS.mediaGetEngineStatus,
     IPC_CHANNELS.mediaAnalyze,
+    IPC_CHANNELS.mediaGenerateDerivatives,
+    IPC_CHANNELS.mediaGetCacheStatus,
+    IPC_CHANNELS.mediaClearCache,
   ]) {
     ipcMain.removeHandler(channel);
   }
@@ -186,6 +215,49 @@ function registerMediaIpc(options: RegisterMediaIpcOptions): void {
         );
       } catch (error) {
         return handleMediaError<MediaAnalysisRequestResult>(payload, error);
+      }
+    },
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.mediaGenerateDerivatives,
+    async (event, payload): Promise<IpcResult<MediaDerivativeRequestResult>> => {
+      try {
+        assertTrustedIpcSender(event, trustedSources);
+        const { request, payload: inputPayload } = parseRequestWithPayload(payload);
+        const input = parseGenerateMediaDerivativesInput(inputPayload);
+        return createSuccess(
+          request.requestId,
+          await mediaDerivativeService.enqueue(input.projectId, input.mediaId),
+        );
+      } catch (error) {
+        return handleMediaError<MediaDerivativeRequestResult>(payload, error);
+      }
+    },
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.mediaGetCacheStatus,
+    async (event, payload): Promise<IpcResult<MediaCacheStatus>> => {
+      try {
+        assertTrustedIpcSender(event, trustedSources);
+        const request = parseRequestEnvelope(payload);
+        return createSuccess(request.requestId, await mediaCacheService.getStatus());
+      } catch (error) {
+        return handleMediaError<MediaCacheStatus>(payload, error);
+      }
+    },
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.mediaClearCache,
+    async (event, payload): Promise<IpcResult<MediaCacheClearResult>> => {
+      try {
+        assertTrustedIpcSender(event, trustedSources);
+        const request = parseRequestEnvelope(payload);
+        return createSuccess(request.requestId, await mediaCacheService.clear());
+      } catch (error) {
+        return handleMediaError<MediaCacheClearResult>(payload, error);
       }
     },
   );
