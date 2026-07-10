@@ -1,0 +1,60 @@
+# =========================================================
+# Nombre completo: .gitignore
+# Ruta o ubicación: /.gitignore
+#
+# Función o funciones:
+# - Evitar subir dependencias, compilaciones y archivos temporales.
+# - Mantener fuera del repositorio configuraciones locales y sensibles.
+# - Preparar exclusiones para futuros recursos multimedia y modelos.
+# =========================================================
+
+# Dependencias
+node_modules/
+
+# Compilaciones
+dist-electron/
+dist-renderer/
+out/
+release/
+
+# Cachés
+.cache/
+.vite/
+coverage/
+*.tsbuildinfo
+
+# Variables locales
+.env
+.env.*
+!.env.example
+
+# Registros
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editores
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+
+# Archivos temporales
+*.tmp
+*.temp
+*.bak
+*.swp
+
+# Datos locales futuros
+workspace/
+projects-local/
+cache-local/
+models-local/
+exports-local/
