@@ -5,7 +5,7 @@ Ruta o ubicación: /apps/desktop/main/media/media-analysis-service.ts
 Función o funciones:
 - Crear trabajos persistentes de análisis con FFprobe.
 - Evitar análisis duplicados para el mismo recurso.
-- Exponer el estado real de FFmpeg y FFprobe.
+- Depender de un proveedor reemplazable de motores multimedia.
 ========================================================= */
 
 import {
@@ -23,8 +23,8 @@ import type { MediaAssetRepository } from "../../shared/persistence/media-asset-
 import type { ProjectRepository } from "../../shared/persistence/project-repository.js";
 import { ProjectNotFoundError } from "../projects/project-management-service.js";
 import {
-  FfmpegBinaryService,
   MediaToolUnavailableError,
+  type MediaEngineProvider,
 } from "./ffmpeg-binary-service.js";
 
 interface QueueWakeUp {
@@ -35,7 +35,7 @@ interface MediaAnalysisServiceOptions {
   readonly projects: ProjectRepository;
   readonly media: MediaAssetRepository;
   readonly jobs: JobQueueRepository;
-  readonly engines: FfmpegBinaryService;
+  readonly engines: MediaEngineProvider;
   readonly queue: QueueWakeUp;
 }
 
