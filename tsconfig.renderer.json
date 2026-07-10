@@ -5,28 +5,23 @@
 
   Función o funciones:
   - Configurar TypeScript para React y el proceso renderer.
-  - Aplicar validaciones estrictas de tipos.
+  - Aplicar las reglas estrictas compartidas del proyecto.
   - Mantener aisladas las APIs propias del navegador.
   ========================================================= */
+  "extends": "./tsconfig.json",
   "compilerOptions": {
     "target": "ES2022",
     "useDefineForClassFields": true,
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "allowJs": false,
-    "skipLibCheck": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
-    "strict": true,
-    "forceConsistentCasingInFileNames": true,
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true,
     "baseUrl": ".",
     "paths": {
       "@renderer/*": ["apps/desktop/renderer/*"]
