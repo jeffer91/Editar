@@ -26,6 +26,7 @@ type JobKind =
   | "generate-thumbnails"
   | "extract-audio"
   | "detect-silence"
+  | "reduce-silence"
   | "transcribe-audio"
   | "detect-scenes"
   | "render-preview"
