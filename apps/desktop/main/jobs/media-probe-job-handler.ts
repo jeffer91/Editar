@@ -4,7 +4,7 @@ Ruta o ubicación: /apps/desktop/main/jobs/media-probe-job-handler.ts
 
 Función o funciones:
 - Aplicar metadatos técnicos producidos por FFprobe.
-- Iniciar derivados optimizados después de un análisis correcto.
+- Iniciar derivados y análisis acústico después de un resultado correcto.
 - Registrar fallos y restablecer estado antes de un reintento.
 ========================================================= */
 
@@ -18,6 +18,7 @@ import {
   type MediaMetadata,
 } from "../../shared/domain/index.js";
 import type { MediaAssetRepository } from "../../shared/persistence/media-asset-repository.js";
+import type { AudioAnalysisScheduler } from "../media/audio-analysis-service.js";
 import type { MediaDerivativeScheduler } from "../media/media-derivative-service.js";
 import type { JobResultHandler } from "./job-result-handler.js";
 
@@ -51,6 +52,7 @@ class MediaProbeJobHandler implements JobResultHandler {
   constructor(
     private readonly media: MediaAssetRepository,
     private readonly derivativeScheduler?: MediaDerivativeScheduler,
+    private readonly audioAnalysisScheduler?: AudioAnalysisScheduler,
   ) {}
 
   async complete(
@@ -88,6 +90,17 @@ class MediaProbeJobHandler implements JobResultHandler {
       } catch (error) {
         console.warn(
           "El análisis terminó, pero los derivados quedaron pendientes:",
+          error,
+        );
+      }
+    }
+
+    if (this.audioAnalysisScheduler) {
+      try {
+        await this.audioAnalysisScheduler.enqueueForAsset(updated, undefined, [job.id]);
+      } catch (error) {
+        console.warn(
+          "El análisis técnico terminó, pero la detección de silencios quedó pendiente:",
           error,
         );
       }
