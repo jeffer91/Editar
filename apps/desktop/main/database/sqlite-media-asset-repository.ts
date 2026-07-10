@@ -52,7 +52,7 @@ class SqliteMediaAssetRepository implements MediaAssetRepository {
   async listAll(): Promise<readonly MediaAsset[]> {
     const rows = this.database
       .prepare("SELECT data_json FROM media_assets ORDER BY imported_at ASC, id ASC")
-      .all() as MediaRow[];
+      .all() as unknown as MediaRow[];
 
     return Object.freeze(rows.map((row) => parseMediaAsset(row.data_json)));
   }
