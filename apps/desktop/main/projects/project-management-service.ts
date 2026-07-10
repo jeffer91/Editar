@@ -17,7 +17,6 @@ import {
   type EntityId,
   type ProjectCanvas,
   type ProjectDocument,
-  type ProjectStatus,
 } from "../../shared/domain/index.js";
 import type {
   CreateProjectInput,
