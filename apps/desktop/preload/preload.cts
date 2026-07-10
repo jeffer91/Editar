@@ -5,7 +5,7 @@ Ruta o ubicación: /apps/desktop/preload/preload.cts
 Función o funciones:
 - Exponer una API limitada y tipada al renderer.
 - Enviar solicitudes únicamente por canales IPC autorizados.
-- Proporcionar operaciones seguras del sistema, SQLite, proyectos, medios y trabajos.
+- Proporcionar operaciones seguras del sistema, medios y trabajos.
 ========================================================= */
 
 const { contextBridge, ipcRenderer } = require("electron") as typeof import("electron");
@@ -22,6 +22,9 @@ type JobActionResult = import("../shared/job-queue-contracts.js").JobActionResul
 type JobIdInput = import("../shared/job-queue-contracts.js").JobIdInput;
 type JobQueueSnapshot = import("../shared/job-queue-contracts.js").JobQueueSnapshot;
 type ProjectJobInput = import("../shared/job-queue-contracts.js").ProjectJobInput;
+type AnalyzeMediaInput = import("../shared/media-engine-contracts.js").AnalyzeMediaInput;
+type MediaAnalysisRequestResult = import("../shared/media-engine-contracts.js").MediaAnalysisRequestResult;
+type MediaEngineStatus = import("../shared/media-engine-contracts.js").MediaEngineStatus;
 type ImportMediaInput = import("../shared/media-import-contracts.js").ImportMediaInput;
 type MediaImportResult = import("../shared/media-import-contracts.js").MediaImportResult;
 type CreateProjectInput = import("../shared/project-management-contracts.js").CreateProjectInput;
@@ -46,6 +49,8 @@ const IPC_CHANNELS = Object.freeze({
   projectsSetStatus: "projects:set-status",
   projectsDelete: "projects:delete",
   mediaChooseAndImport: "media:choose-and-import",
+  mediaGetEngineStatus: "media:get-engine-status",
+  mediaAnalyze: "media:analyze",
   jobsGetSnapshot: "jobs:get-snapshot",
   jobsEnqueueDiagnostic: "jobs:enqueue-diagnostic",
   jobsPause: "jobs:pause",
@@ -119,6 +124,13 @@ const bridge: EditarBridge = Object.freeze({
     chooseAndImport: (input: ImportMediaInput) =>
       invoke<MediaImportResult, ImportMediaInput>(
         IPC_CHANNELS.mediaChooseAndImport,
+        input,
+      ),
+    getEngineStatus: () =>
+      invoke<MediaEngineStatus>(IPC_CHANNELS.mediaGetEngineStatus),
+    analyze: (input: AnalyzeMediaInput) =>
+      invoke<MediaAnalysisRequestResult, AnalyzeMediaInput>(
+        IPC_CHANNELS.mediaAnalyze,
         input,
       ),
   }),
