@@ -4,7 +4,7 @@ Ruta o ubicación: /README.md
 
 Función o funciones:
 - Documentar la finalidad y arquitectura actual del proyecto.
-- Explicar cómo instalar, ejecutar y verificar la aplicación.
+- Explicar instalación, motores multimedia y verificación.
 - Registrar los bloques completados y el siguiente bloque.
 ========================================================= -->
 
@@ -22,14 +22,16 @@ Aplicación de escritorio modular para edición de video, eliminación de silenc
 - **Bloque 6:** gestión funcional de proyectos.
 - **Bloque 7:** importación y registro de medios.
 - **Bloque 8:** cola persistente y procesamiento en segundo plano.
+- **Bloque 9:** integración de FFmpeg y FFprobe.
 
-La aplicación ya dispone de proceso principal, preload aislado, comunicación validada, shell responsivo, núcleo de dominio, almacenamiento SQLite, gestión de proyectos, importación de medios y una cola de trabajos ejecutada fuera del renderer.
+La aplicación ya puede localizar motores multimedia, verificar sus versiones, analizar videos, audios e imágenes mediante FFprobe dentro de Worker Threads y guardar los metadatos técnicos directamente en SQLite.
 
 ## Requisitos
 
 - Node.js 22.16 o superior.
 - npm 10 o superior.
 - Windows 10 u 11 como plataforma inicial objetivo.
+- FFprobe disponible mediante una ruta configurada, recursos locales o `PATH` para ejecutar análisis reales.
 
 ## Instalación
 
@@ -37,13 +39,40 @@ La aplicación ya dispone de proceso principal, preload aislado, comunicación v
 npm install
 ```
 
+## Configuración de FFmpeg y FFprobe
+
+La aplicación busca cada herramienta en este orden:
+
+1. `EDITAR_FFMPEG_PATH` y `EDITAR_FFPROBE_PATH`.
+2. Carpeta `bin` de los recursos empaquetados.
+3. Carpeta `resources/bin` de la aplicación.
+4. Carpeta `resources/bin` del proyecto.
+5. `PATH` del sistema operativo.
+
+En Windows se pueden colocar los ejecutables aquí:
+
+```text
+resources/bin/ffmpeg.exe
+resources/bin/ffprobe.exe
+```
+
+También pueden señalarse temporalmente desde PowerShell:
+
+```powershell
+$env:EDITAR_FFMPEG_PATH = "C:\ffmpeg\bin\ffmpeg.exe"
+$env:EDITAR_FFPROBE_PATH = "C:\ffmpeg\bin\ffprobe.exe"
+npm run dev
+```
+
+Los binarios grandes no se versionan todavía en GitHub. El instalador final deberá incorporar versiones verificadas y compatibles con su licencia.
+
 ## Desarrollo
 
 ```powershell
 npm run dev
 ```
 
-Este comando inicia Vite, compila el proceso Electron y abre la aplicación.
+Este comando inicia Vite, compila Electron y abre la aplicación.
 
 ## Verificación
 
@@ -51,25 +80,24 @@ Este comando inicia Vite, compila el proceso Electron y abre la aplicación.
 npm run verify
 ```
 
-La verificación realiza:
+La verificación incluye:
 
-1. Limpieza de compilaciones anteriores.
-2. Comprobación de tipos del renderer.
-3. Comprobación de tipos de Electron.
-4. Compilación de React.
-5. Compilación del proceso principal, preload, trabajadores y contratos.
-6. Pruebas de seguridad e IPC.
-7. Pruebas de navegación.
-8. Pruebas del dominio completo.
-9. Pruebas de migraciones, integridad y respaldos SQLite.
-10. Pruebas de gestión de proyectos.
-11. Pruebas de importación y firmas multimedia.
-12. Pruebas reales de Worker Threads.
-13. Pruebas de progreso, pausa, reanudación y cancelación.
-14. Pruebas de prioridad y límite de concurrencia.
-15. Pruebas de recuperación de trabajos interrumpidos.
+1. Typecheck del renderer y Electron.
+2. Compilación de React, proceso principal, preload y Worker Threads.
+3. Pruebas de seguridad, IPC y navegación.
+4. Pruebas del dominio, SQLite, proyectos e importación.
+5. Pruebas de la cola, cancelación y recuperación.
+6. Pruebas del parser JSON de FFprobe.
+7. Pruebas de prioridad y fallback de binarios.
+8. Prueba completa de cola → Worker Thread → FFprobe simulado → SQLite.
+9. Pruebas de metadatos de video, audio e imagen.
+10. Confirmación de que el análisis técnico no genera snapshots adicionales.
 
-Cuando falla el tipado, GitHub Actions conserva el diagnóstico completo como artefacto durante siete días.
+Para ejecutar solo las pruebas de motores:
+
+```powershell
+npm run test:engines
+```
 
 ## Ejecución compilada
 
@@ -80,60 +108,86 @@ npm start
 ## Pantallas disponibles
 
 - Inicio.
-- Proyectos funcionales.
-- Editor conectado al proyecto activo e importación de medios.
+- Proyectos.
+- Editor con importación y metadatos técnicos.
 - Centro de trabajos.
 - Biblioteca.
-- Ajustes y diagnóstico.
+- Ajustes con diagnóstico de SQLite, FFmpeg y FFprobe.
+
+## Integración de FFmpeg y FFprobe
+
+### Detección segura
+
+La resolución de ejecutables:
+
+- se realiza únicamente en el proceso principal;
+- no acepta rutas provenientes del renderer;
+- ejecuta comandos con `shell: false`;
+- aplica tiempo límite;
+- comprueba `-version`;
+- informa origen, versión, comando resuelto y error.
+
+### Análisis técnico
+
+Después de importar un medio, la aplicación intenta crear un trabajo `probe-media`.
+
+FFprobe obtiene:
+
+- duración;
+- ancho y alto;
+- tasa de cuadros racional;
+- códec de video o imagen;
+- bitrate cuando está disponible;
+- códec de audio;
+- canales;
+- frecuencia de muestreo;
+- bitrate de audio cuando está disponible.
+
+El parser rechaza respuestas incompletas. No se inventan valores ausentes.
+
+### Procesamiento
+
+El análisis se ejecuta dentro de un Worker Thread y usa la cola persistente del Bloque 8.
+
+```text
+Editor
+└── IPC por projectId + mediaId
+    └── MediaAnalysisService
+        └── trabajo probe-media
+            └── WorkerThreadJobExecutor
+                └── FFprobe
+                    └── JSON validado
+                        └── media_assets.data_json
+```
+
+La aplicación limita la salida de FFprobe, aplica un tiempo máximo de 60 segundos y permite cancelar el proceso hijo.
+
+### Persistencia
+
+Los metadatos actualizan únicamente la fila del recurso multimedia. El análisis técnico:
+
+- no reescribe todo el proyecto;
+- no modifica clips o pistas;
+- no genera snapshots;
+- conserva la ruta y hash del archivo original;
+- registra estado `pending`, `ready` o `failed`.
+
+### Importación sin motores
+
+La ausencia de FFprobe no invalida la importación. El recurso permanece registrado como pendiente y puede analizarse posteriormente desde el Editor cuando el motor esté disponible.
 
 ## Cola de trabajos
 
-La aplicación dispone de una cola persistente en SQLite para operaciones largas.
+La cola persistente registra estado, prioridad, progreso, dependencias, intentos, resultado y error. Permite pausar, reanudar, cancelar, reintentar y recuperar trabajos interrumpidos.
 
-Cada trabajo registra:
+En este bloque ya tienen ejecutor real:
 
-- proyecto y tipo de operación;
-- estado y porcentaje de progreso;
-- prioridad;
-- dependencias;
-- intento actual y máximo permitido;
-- datos de entrada y resultado;
-- error controlado;
-- fechas de creación, actualización, inicio y finalización.
+- `diagnostic-worker`;
+- `probe-media`.
 
-Estados disponibles:
-
-```text
-pending     Esperando ejecución
-preparing   Preparando recursos
-running     Ejecutándose
-paused      Detenido para reiniciarse después
-cancelled   Cancelado por el usuario
-completed   Finalizado correctamente
-failed      Finalizado con error
-```
-
-La cola:
-
-- ordena por prioridad y antigüedad;
-- respeta dependencias entre trabajos;
-- limita la cantidad de ejecuciones simultáneas;
-- actualiza progreso sin generar snapshots del proyecto;
-- permite pausar, reanudar, cancelar y reintentar;
-- recupera al iniciar trabajos que quedaron en `preparing` o `running`;
-- detiene los trabajadores antes de cerrar SQLite.
-
-La pausa termina la ejecución activa y conserva el trabajo como `paused`. Al reanudar, la operación empieza nuevamente desde cero y aumenta el número de intento.
-
-## Procesamiento en segundo plano
-
-El trabajo `diagnostic-worker` se ejecuta realmente dentro de un Worker Thread de Node.js. Reporta diez avances hasta llegar al 100 % y demuestra que una tarea de procesamiento puede ejecutarse sin bloquear React ni la ventana de Electron.
-
-Los tipos `probe-media`, `generate-proxy`, `generate-waveform`, `extract-audio`, `detect-silence`, `transcribe-audio`, `render-preview` y `export-video` ya forman parte del dominio, pero todavía no tienen ejecutores. Permanecerán pendientes hasta que los motores correspondientes sean incorporados.
+Los demás tipos se incorporarán gradualmente.
 
 ## Importación de medios
-
-El editor permite seleccionar varios archivos mediante el diálogo nativo del sistema.
 
 Formatos registrados inicialmente:
 
@@ -141,24 +195,7 @@ Formatos registrados inicialmente:
 - audio: MP3, WAV, M4A, AAC, FLAC, OGG y OPUS;
 - imagen: PNG, JPG, JPEG, WEBP, GIF y BMP.
 
-Antes de guardar cada recurso, la aplicación valida ruta, tamaño, extensión y firma binaria, calcula un SHA-256 por streaming y busca duplicados. Los originales no se copian, renombran ni modifican.
-
-## Gestión de proyectos
-
-La pantalla Proyectos permite crear, buscar, abrir, renombrar, duplicar, archivar, restaurar y eliminar proyectos. La duplicación genera identificadores nuevos y excluye trabajos transitorios.
-
-## Núcleo del dominio
-
-El núcleo utiliza:
-
-- identificadores tipados;
-- tiempos enteros en microsegundos;
-- versión de esquema del proyecto;
-- modelos inmutables;
-- parámetros JSON serializables;
-- validación de referencias entre entidades;
-- estados controlados para medios y trabajos;
-- dependencias de trabajos sin ciclos.
+Antes de guardar cada recurso, la aplicación valida ruta, tamaño, extensión y firma binaria, calcula SHA-256 por streaming y busca duplicados. Los originales no se copian, renombran ni modifican.
 
 ## Persistencia local
 
@@ -167,61 +204,60 @@ SQLite utiliza:
 - tablas separadas por entidad;
 - claves foráneas y borrado en cascada;
 - modo WAL;
-- migraciones versionadas con checksum;
-- esquema actual versión 3;
-- transacciones completas por proyecto;
-- repositorio especializado para progreso de trabajos;
+- migraciones con checksum;
+- esquema versión 3;
 - snapshots de recuperación;
-- comprobaciones de integridad;
-- respaldos externos con checksum SHA-256;
-- retención automática de respaldos.
+- repositorios especializados para trabajos y medios;
+- respaldos externos con SHA-256;
+- retención automática.
 
-La interfaz nunca recibe acceso directo a SQLite, Node.js, rutas arbitrarias ni Worker Threads. Todas las operaciones se ejecutan mediante contratos IPC validados.
+## Seguridad
+
+- React no accede a Node.js, SQLite ni Worker Threads.
+- El renderer solo envía identificadores tipados.
+- Las rutas de archivos provienen del selector nativo o de SQLite.
+- Los comandos de motores se resuelven en el proceso principal.
+- FFprobe se ejecuta sin shell.
+- Los originales nunca se modifican.
+- Los resultados se validan antes de marcar el trabajo como completado.
 
 ## Estructura actual
 
 ```text
 Editar/
-├── apps/
-│   └── desktop/
-│       ├── main/
-│       │   ├── database/
-│       │   ├── ipc/
-│       │   ├── jobs/
-│       │   ├── media/
-│       │   ├── projects/
-│       │   └── security/
-│       ├── preload/
-│       ├── renderer/
-│       │   └── src/
-│       │       ├── app/
-│       │       ├── components/
-│       │       └── screens/
-│       └── shared/
-│           ├── domain/
-│           └── persistence/
+├── apps/desktop/
+│   ├── main/
+│   │   ├── database/
+│   │   ├── ipc/
+│   │   ├── jobs/
+│   │   ├── media/
+│   │   ├── projects/
+│   │   └── security/
+│   ├── preload/
+│   ├── renderer/src/
+│   │   ├── app/
+│   │   ├── components/
+│   │   └── screens/
+│   └── shared/
+│       ├── domain/
+│       └── persistence/
 ├── docs/
+├── resources/bin/
 ├── scripts/
 ├── tests/
-├── package.json
-├── tsconfig.json
-├── tsconfig.electron.json
-├── tsconfig.renderer.json
-└── vite.config.ts
+└── package.json
 ```
 
 ## Principios del proyecto
 
-- Los videos originales nunca se modificarán.
-- La interfaz no tendrá acceso directo a Node.js ni SQLite.
-- Todo canal IPC debe declararse, tiparse y validarse.
-- Los procesos pesados deben ejecutarse fuera del renderer.
-- Los cambios frecuentes de progreso no deben crear snapshots.
-- La aplicación debe cerrar trabajadores antes de cerrar la base.
-- Las migraciones aplicadas no pueden modificarse silenciosamente.
-- Los módulos futuros dependerán de contratos estables.
-- Cada bloque deberá compilar y verificarse antes de continuar.
+- Los originales nunca se modificarán.
+- Todo IPC debe declararse, tiparse y validarse.
+- Los procesos pesados se ejecutan fuera del renderer.
+- Los resultados técnicos se validan antes de persistirse.
+- Los avances y metadatos no deben crear snapshots innecesarios.
+- Los motores deben ser reemplazables mediante contratos.
+- Cada bloque debe compilar y superar pruebas antes de fusionarse.
 
 ## Siguiente bloque
 
-**Bloque 9 — Integración de FFmpeg y FFprobe.**
+**Bloque 10 — Proxies, miniaturas, formas de onda y caché multimedia.**
