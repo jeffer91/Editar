@@ -6,8 +6,9 @@
   Función o funciones:
   - Compilar el proceso principal y el preload de Electron.
   - Generar archivos separados del código de la interfaz.
-  - Aplicar comprobaciones estrictas para el entorno Node.js.
+  - Aplicar las reglas estrictas compartidas del proyecto.
   ========================================================= */
+  "extends": "./tsconfig.json",
   "compilerOptions": {
     "target": "ES2022",
     "lib": ["ES2022"],
@@ -16,13 +17,7 @@
     "rootDir": "apps/desktop",
     "outDir": "dist-electron",
     "types": ["node", "electron"],
-    "strict": true,
-    "skipLibCheck": true,
     "esModuleInterop": true,
-    "forceConsistentCasingInFileNames": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true,
     "sourceMap": true,
     "declaration": false
   },
