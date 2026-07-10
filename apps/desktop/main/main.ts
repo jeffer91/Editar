@@ -4,7 +4,7 @@ Ruta o ubicación: /apps/desktop/main/main.ts
 
 Función o funciones:
 - Iniciar el proceso principal de Electron.
-- Integrar SQLite, motores, audio, derivados y caché multimedia.
+- Integrar SQLite, motores, audio, línea de tiempo y textos.
 - Registrar IPC, protocolo interno y cierre ordenado de Workers.
 ========================================================= */
 
@@ -20,6 +20,7 @@ import { registerJobQueueIpc } from "./ipc/register-job-queue-ipc.js";
 import { registerMediaIpc } from "./ipc/register-media-ipc.js";
 import { registerProjectIpc } from "./ipc/register-project-ipc.js";
 import { registerSystemIpc } from "./ipc/register-system-ipc.js";
+import { registerTimelineIpc } from "./ipc/register-timeline-ipc.js";
 import { AudioAnalysisJobHandler } from "./jobs/audio-analysis-job-handler.js";
 import { CompositeJobResultHandler } from "./jobs/composite-job-result-handler.js";
 import { JobQueueService } from "./jobs/job-queue-service.js";
@@ -41,6 +42,7 @@ import { SilenceReductionService } from "./media/silence-reduction-service.js";
 import { ProjectManagementService } from "./projects/project-management-service.js";
 import { applyWindowSecurity } from "./security/window-security.js";
 import type { TrustedSourceOptions } from "./security/trusted-sources.js";
+import { TimelineEditingService } from "./timeline/timeline-editing-service.js";
 
 registerMediaCacheScheme();
 
@@ -134,6 +136,7 @@ app
     databaseService = service;
 
     const projectService = new ProjectManagementService(service.projects);
+    const timelineService = new TimelineEditingService(service.projects);
     const engines = new FfmpegBinaryService({
       applicationPath: app.getAppPath(),
       resourcesPath: process.resourcesPath,
@@ -223,6 +226,10 @@ app
     registerProjectIpc({
       trustedSources,
       projectService,
+    });
+    registerTimelineIpc({
+      trustedSources,
+      timelineService,
     });
     registerMediaIpc({
       trustedSources,

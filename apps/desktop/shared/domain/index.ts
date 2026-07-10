@@ -20,5 +20,7 @@ export * from "./project-document.js";
 export * from "./project-media-operations.js";
 export * from "./project-operations.js";
 export * from "./project.js";
+export * from "./text-operations.js";
 export * from "./text.js";
+export * from "./timeline-operations.js";
 export * from "./timeline.js";

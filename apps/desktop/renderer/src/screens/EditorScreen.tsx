@@ -3,9 +3,9 @@ Nombre completo: EditorScreen.tsx
 Ruta o ubicación: /apps/desktop/renderer/src/screens/EditorScreen.tsx
 
 Función o funciones:
-- Mostrar la estructura visual del editor.
-- Importar, analizar, optimizar y reducir silencios en medios.
-- Refrescar resultados persistidos mientras existen trabajos activos.
+- Integrar medios, línea de tiempo funcional e inspector de clips.
+- Añadir, mover, recortar, dividir y eliminar clips persistentes.
+- Crear, editar y previsualizar títulos y subtítulos animados.
 ========================================================= */
 
 import { useEffect } from "react";
@@ -14,13 +14,19 @@ import type {
   JobKind,
   ProjectDocument,
   SilenceReductionMode,
-  TrackKind,
+  TextTemplateId,
 } from "../../../shared/domain";
 import { useAudioProcessing } from "../app/use-audio-processing";
 import { useMediaAnalysis } from "../app/use-media-analysis";
 import { useMediaCache } from "../app/use-media-cache";
 import { useMediaImport } from "../app/use-media-import";
+import { useTimelineEditor } from "../app/use-timeline-editor";
 import { ProjectMediaPanel } from "../components/media/ProjectMediaPanel";
+import {
+  ClipInspector,
+  type ClipTimingInput,
+} from "../components/timeline/ClipInspector";
+import { TimelineEditor } from "../components/timeline/TimelineEditor";
 import { AppIcon } from "../components/ui/AppIcon";
 
 interface EditorScreenProps {
@@ -29,14 +35,6 @@ interface EditorScreenProps {
   readonly onProjectChange: (project: ProjectDocument) => void;
 }
 
-const trackLabels: Readonly<Record<TrackKind, string>> = Object.freeze({
-  video: "V",
-  audio: "A",
-  text: "T",
-  overlay: "O",
-  adjustment: "FX",
-});
-
 const ACTIVE_MEDIA_JOB_KINDS: readonly JobKind[] = Object.freeze([
   "generate-proxy",
   "generate-waveform",
@@ -44,6 +42,22 @@ const ACTIVE_MEDIA_JOB_KINDS: readonly JobKind[] = Object.freeze([
   "detect-silence",
   "reduce-silence",
 ]);
+
+const TEXT_DEFAULT_CONTENT: Readonly<Record<TextTemplateId, string>> =
+  Object.freeze({
+    title: "Título principal",
+    subtitle: "Escribe aquí el subtítulo",
+    "lower-third": "Nombre\nCargo o descripción",
+    caption: "Texto destacado",
+  });
+
+function hexToRgba(hex: string, opacity: number): string {
+  const value = hex.replace("#", "");
+  const red = Number.parseInt(value.slice(0, 2), 16);
+  const green = Number.parseInt(value.slice(2, 4), 16);
+  const blue = Number.parseInt(value.slice(4, 6), 16);
+  return `rgba(${red}, ${green}, ${blue}, ${opacity})`;
+}
 
 function EditorScreen({
   project,
@@ -54,14 +68,13 @@ function EditorScreen({
   const mediaAnalysis = useMediaAnalysis();
   const mediaCache = useMediaCache(false);
   const audioProcessing = useAudioProcessing();
+  const timeline = useTimelineEditor();
   const pendingMediaCount =
-    project?.media.filter((asset) => asset.inspection.status === "pending").length ?? 0;
+    project?.media.filter((asset) => asset.inspection.status === "pending")
+      .length ?? 0;
 
   useEffect(() => {
-    if (!project) {
-      return undefined;
-    }
-
+    if (!project) return undefined;
     let cancelled = false;
 
     const refreshWhenNeeded = async (): Promise<void> => {
@@ -72,21 +85,20 @@ function EditorScreen({
           (item) =>
             item.job.projectId === project.project.id &&
             ACTIVE_MEDIA_JOB_KINDS.includes(item.job.kind) &&
-            ["pending", "preparing", "running", "paused"].includes(item.job.status),
+            ["pending", "preparing", "running", "paused"].includes(
+              item.job.status,
+            ),
         );
 
-      if (pendingMediaCount === 0 && !hasActiveMediaJobs) {
-        return;
-      }
-
+      if (pendingMediaCount === 0 && !hasActiveMediaJobs) return;
       const projectResult = await window.editar.projects.open({
         projectId: project.project.id,
       });
-
       if (!cancelled && projectResult.ok) {
         onProjectChange(projectResult.data);
       }
     };
+
     const timer = window.setInterval(() => void refreshWhenNeeded(), 900);
     void refreshWhenNeeded();
 
@@ -109,7 +121,11 @@ function EditorScreen({
             Selecciona un proyecto guardado o crea uno nuevo para cargar su
             secuencia, pistas y recursos en el editor.
           </p>
-          <button className="primary-button" type="button" onClick={onChooseProject}>
+          <button
+            className="primary-button"
+            type="button"
+            onClick={onChooseProject}
+          >
             Elegir proyecto
             <AppIcon name="arrow" size={18} />
           </button>
@@ -118,13 +134,6 @@ function EditorScreen({
     );
   }
 
-  const mainSequence =
-    project.sequences.find(
-      (sequence) => sequence.id === project.project.mainSequenceId,
-    ) ?? project.sequences[0];
-  const orderedTracks = [...project.tracks].sort(
-    (left, right) => left.order - right.order,
-  );
   const derivativeCount = project.media.reduce(
     (total, asset) => total + asset.derivatives.length,
     0,
@@ -135,47 +144,46 @@ function EditorScreen({
   const reducedCount = project.media.filter(
     (asset) => asset.silenceReduction,
   ).length;
+  const selectedClip = project.clips.find(
+    (clip) => clip.id === timeline.selectedClipId,
+  );
+  const selectedTextLayerId =
+    selectedClip?.source.type === "text"
+      ? selectedClip.source.textLayerId
+      : null;
+  const selectedTextLayer = selectedTextLayerId
+    ? project.textLayers.find((layer) => layer.id === selectedTextLayerId)
+    : undefined;
+
+  const applyDocument = (document: ProjectDocument | null): void => {
+    if (document) onProjectChange(document);
+  };
 
   const refreshProject = async (): Promise<void> => {
     const refreshed = await window.editar.projects.open({
       projectId: project.project.id,
     });
-
-    if (refreshed.ok) {
-      onProjectChange(refreshed.data);
-    }
+    if (refreshed.ok) onProjectChange(refreshed.data);
   };
 
   const importMedia = async (): Promise<void> => {
     const updatedProject = await mediaImport.chooseAndImport(project.project.id);
-
-    if (updatedProject) {
-      onProjectChange(updatedProject);
-    }
+    if (updatedProject) onProjectChange(updatedProject);
   };
 
   const analyzeMedia = async (mediaId: EntityId<"media">): Promise<void> => {
     const accepted = await mediaAnalysis.analyze(project.project.id, mediaId);
-
-    if (accepted) {
-      await refreshProject();
-    }
+    if (accepted) await refreshProject();
   };
 
   const optimizeMedia = async (mediaId: EntityId<"media">): Promise<void> => {
     const result = await mediaCache.generate(project.project.id, mediaId);
-
-    if (result) {
-      await refreshProject();
-    }
+    if (result) await refreshProject();
   };
 
   const analyzeAudio = async (mediaId: EntityId<"media">): Promise<void> => {
     const result = await audioProcessing.analyze(project.project.id, mediaId);
-
-    if (result) {
-      await refreshProject();
-    }
+    if (result) await refreshProject();
   };
 
   const reduceSilence = async (
@@ -187,10 +195,30 @@ function EditorScreen({
       mediaId,
       mode,
     );
+    if (result) await refreshProject();
+  };
 
-    if (result) {
-      await refreshProject();
-    }
+  const saveClipTiming = async (
+    clipId: EntityId<"clip">,
+    input: ClipTimingInput,
+  ): Promise<void> => {
+    const moved = await timeline.move(
+      project.project.id,
+      clipId,
+      input.trackId,
+      input.timelineStartMs,
+    );
+    if (!moved) return;
+
+    onProjectChange(moved);
+    const trimmed = await timeline.trim(
+      project.project.id,
+      clipId,
+      input.timelineStartMs,
+      input.durationMs,
+      input.sourceStartMs,
+    );
+    applyDocument(trimmed);
   };
 
   return (
@@ -204,9 +232,12 @@ function EditorScreen({
           <small>
             {project.project.canvas.width} × {project.project.canvas.height} ·{" "}
             {project.project.canvas.aspectRatio} · {project.project.canvas.fps} FPS
+            · {project.clips.length} clips · {project.textLayers.length} textos
           </small>
         </div>
-        <span className={`project-status project-status--${project.project.status}`}>
+        <span
+          className={`project-status project-status--${project.project.status}`}
+        >
           {project.project.status === "draft"
             ? "Borrador"
             : project.project.status === "active"
@@ -215,7 +246,28 @@ function EditorScreen({
         </span>
       </section>
 
-      <section className="editor-workbench" aria-label="Estructura del editor">
+      {timeline.message || timeline.errorMessage ? (
+        <div
+          className={`media-import-message ${timeline.errorMessage ? "media-import-message--error" : ""}`}
+          role={timeline.errorMessage ? "alert" : "status"}
+        >
+          <button
+            type="button"
+            aria-label="Cerrar mensaje"
+            onClick={timeline.clearMessages}
+          >
+            ×
+          </button>
+          <strong>
+            {timeline.errorMessage
+              ? "La edición no pudo guardarse"
+              : "Edición guardada"}
+          </strong>
+          <small>{timeline.errorMessage || timeline.message}</small>
+        </div>
+      ) : null}
+
+      <section className="editor-workbench" aria-label="Editor funcional">
         <ProjectMediaPanel
           project={project}
           importing={mediaImport.importing}
@@ -227,7 +279,9 @@ function EditorScreen({
           audioActiveMediaId={audioProcessing.activeMediaId}
           audioOperation={audioProcessing.operation}
           analysisMessage={mediaAnalysis.message}
-          analysisErrorMessage={mediaAnalysis.errorMessage || mediaAnalysis.engine.errorMessage}
+          analysisErrorMessage={
+            mediaAnalysis.errorMessage || mediaAnalysis.engine.errorMessage
+          }
           cacheMessage={mediaCache.message}
           cacheErrorMessage={mediaCache.errorMessage}
           audioMessage={audioProcessing.message}
@@ -236,7 +290,9 @@ function EditorScreen({
           onAnalyze={(mediaId) => void analyzeMedia(mediaId)}
           onOptimize={(mediaId) => void optimizeMedia(mediaId)}
           onAnalyzeAudio={(mediaId) => void analyzeAudio(mediaId)}
-          onReduceSilence={(mediaId, mode) => void reduceSilence(mediaId, mode)}
+          onReduceSilence={(mediaId, mode) =>
+            void reduceSilence(mediaId, mode)
+          }
           onClearResult={mediaImport.clearResult}
           onClearAnalysisMessages={mediaAnalysis.clearMessages}
           onClearCacheMessages={mediaCache.clearMessages}
@@ -247,10 +303,46 @@ function EditorScreen({
           <div className="editor-monitor">
             <div
               className="editor-monitor__canvas"
-              style={{ backgroundColor: project.project.canvas.backgroundColor }}
+              style={{
+                position: "relative",
+                backgroundColor: project.project.canvas.backgroundColor,
+              }}
             >
-              <span className="editor-monitor__play">▶</span>
-              <small>Monitor de vista previa</small>
+              {selectedTextLayer ? (
+                <div
+                  className={`editor-monitor__text-preview ${
+                    selectedTextLayer.entranceAnimation
+                      ? `editor-monitor__text-preview--${selectedTextLayer.entranceAnimation.presetId}`
+                      : ""
+                  }`}
+                  style={{
+                    color: selectedTextLayer.style.color,
+                    backgroundColor: hexToRgba(
+                      selectedTextLayer.style.backgroundColor,
+                      selectedTextLayer.style.backgroundOpacity,
+                    ),
+                    fontFamily: selectedTextLayer.style.fontFamily,
+                    fontSize: `${Math.max(
+                      14,
+                      selectedTextLayer.style.fontSizePx / 2.5,
+                    )}px`,
+                    fontWeight: selectedTextLayer.style.fontWeight,
+                    fontStyle: selectedTextLayer.style.fontStyle,
+                    lineHeight: selectedTextLayer.style.lineHeight,
+                    letterSpacing: `${selectedTextLayer.style.letterSpacingPx}px`,
+                    textAlign: selectedTextLayer.style.alignment,
+                  }}
+                >
+                  {selectedTextLayer.content}
+                </div>
+              ) : (
+                <>
+                  <span className="editor-monitor__play">▶</span>
+                  <small>
+                    Selecciona un texto para previsualizar su animación
+                  </small>
+                </>
+              )}
             </div>
             <div className="editor-monitor__controls">
               <span>00:00:00:00</span>
@@ -263,122 +355,78 @@ function EditorScreen({
             </div>
           </div>
 
-          <div className="editor-timeline">
-            <div className="editor-timeline__toolbar">
-              <div>
-                <span className="section-label">LÍNEA DE TIEMPO</span>
-                <strong>{mainSequence?.name ?? "Secuencia principal"}</strong>
-              </div>
-              <span className="status-tag">
-                {project.clips.length} clips · {orderedTracks.length} pistas
-              </span>
-            </div>
-
-            <div className="timeline-ruler">
-              <span>00:00</span>
-              <span>00:05</span>
-              <span>00:10</span>
-              <span>00:15</span>
-              <span>00:20</span>
-            </div>
-
-            <div className="timeline-tracks">
-              {orderedTracks.map((track, index) => {
-                const clips = project.clips.filter(
-                  (clip) => clip.trackId === track.id,
-                );
-
-                return (
-                  <div className="timeline-track-row" key={track.id}>
-                    <span
-                      className="timeline-track-row__label"
-                      title={track.name}
-                    >
-                      {trackLabels[track.kind]}
-                      {index + 1}
-                    </span>
-                    <span className="timeline-track-row__lane">
-                      {clips.length === 0 ? (
-                        <i className="timeline-empty-label">Pista vacía</i>
-                      ) : (
-                        clips.map((clip) => (
-                          <i
-                            className={`timeline-placeholder timeline-placeholder--${
-                              track.kind === "audio"
-                                ? "audio"
-                                : track.kind === "text"
-                                  ? "text"
-                                  : "video"
-                            }`}
-                            title={clip.name}
-                            key={clip.id}
-                          />
-                        ))
-                      )}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+          <TimelineEditor
+            project={project}
+            selectedClipId={timeline.selectedClipId}
+            busy={timeline.operation !== null}
+            onSelectClip={timeline.selectClip}
+            onAddMedia={(mediaId) =>
+              void timeline
+                .addMedia(project.project.id, mediaId)
+                .then(applyDocument)
+            }
+            onAddText={(templateId) =>
+              void timeline
+                .addText(
+                  project.project.id,
+                  templateId,
+                  TEXT_DEFAULT_CONTENT[templateId],
+                )
+                .then((document) => {
+                  applyDocument(document);
+                  if (document) {
+                    const newest = document.clips.at(-1);
+                    if (newest?.kind === "text") {
+                      timeline.selectClip(newest.id);
+                    }
+                  }
+                })
+            }
+            onUpdateTrack={(trackId, state) =>
+              void timeline
+                .setTrackState(project.project.id, trackId, state)
+                .then(applyDocument)
+            }
+          />
         </div>
 
-        <aside className="editor-panel editor-panel--properties">
-          <div className="editor-panel__heading">
-            <div>
-              <span className="section-label">PROYECTO</span>
-              <h2>Propiedades</h2>
-            </div>
-          </div>
+        <ClipInspector
+          project={project}
+          selectedClipId={timeline.selectedClipId}
+          busy={timeline.operation !== null}
+          onSaveTiming={(clipId, input) =>
+            void saveClipTiming(clipId, input)
+          }
+          onSplit={(clipId, splitAtMs) =>
+            void timeline
+              .split(project.project.id, clipId, splitAtMs)
+              .then(applyDocument)
+          }
+          onDelete={(clipId) =>
+            void timeline
+              .remove(project.project.id, clipId)
+              .then(applyDocument)
+          }
+          onUpdateText={(clipId, input) =>
+            void timeline
+              .updateText(project.project.id, clipId, input)
+              .then(applyDocument)
+          }
+        />
+      </section>
 
-          <div className="property-group">
-            <strong>Lienzo</strong>
-            <div className="property-row">
-              <span>Resolución</span>
-              <small>
-                {project.project.canvas.width} × {project.project.canvas.height}
-              </small>
-            </div>
-            <div className="property-row">
-              <span>Formato</span>
-              <small>{project.project.canvas.aspectRatio}</small>
-            </div>
-            <div className="property-row">
-              <span>Fotogramas</span>
-              <small>{project.project.canvas.fps} FPS</small>
-            </div>
+      <section className="content-section content-section--compact">
+        <div className="content-section__heading">
+          <div>
+            <span className="section-label">ESTADO DEL PROYECTO</span>
+            <h2>Edición no destructiva</h2>
           </div>
-
-          <div className="property-group">
-            <strong>Contenido</strong>
-            <div className="property-row">
-              <span>Recursos</span>
-              <small>{project.media.length}</small>
-            </div>
-            <div className="property-row">
-              <span>Analizados</span>
-              <small>
-                {project.media.filter((asset) => asset.inspection.status === "ready").length}
-              </small>
-            </div>
-            <div className="property-row">
-              <span>Audio analizado</span>
-              <small>{audioAnalysisCount}</small>
-            </div>
-            <div className="property-row">
-              <span>Sin silencios</span>
-              <small>{reducedCount}</small>
-            </div>
-            <div className="property-row">
-              <span>Derivados</span>
-              <small>{derivativeCount}</small>
-            </div>
-            <div className="property-row">
-              <span>Clips</span>
-              <small>{project.clips.length}</small>
-            </div>
-          </div>
-        </aside>
+          <p>
+            {project.media.length} recursos · {audioAnalysisCount} audios
+            analizados · {reducedCount} versiones reducidas · {derivativeCount}{" "}
+            derivados
+          </p>
+        </div>
       </section>
     </div>
   );

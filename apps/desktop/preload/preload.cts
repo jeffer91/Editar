@@ -5,7 +5,7 @@ Ruta o ubicación: /apps/desktop/preload/preload.cts
 Función o funciones:
 - Exponer una API limitada y tipada al renderer.
 - Enviar solicitudes únicamente por canales IPC autorizados.
-- Proporcionar operaciones seguras de audio, caché y trabajos.
+- Proporcionar edición segura de clips, pistas, textos y medios.
 ========================================================= */
 
 const { contextBridge, ipcRenderer } = require("electron") as typeof import("electron");
@@ -42,6 +42,14 @@ type ProjectIdInput = import("../shared/project-management-contracts.js").Projec
 type RenameProjectInput = import("../shared/project-management-contracts.js").RenameProjectInput;
 type SetProjectStatusInput = import("../shared/project-management-contracts.js").SetProjectStatusInput;
 type ProjectListItem = import("../shared/persistence/project-repository.js").ProjectListItem;
+type AddMediaClipRequest = import("../shared/timeline-editing-contracts.js").AddMediaClipRequest;
+type AddTextClipRequest = import("../shared/timeline-editing-contracts.js").AddTextClipRequest;
+type DeleteClipRequest = import("../shared/timeline-editing-contracts.js").DeleteClipRequest;
+type MoveClipRequest = import("../shared/timeline-editing-contracts.js").MoveClipRequest;
+type SplitClipRequest = import("../shared/timeline-editing-contracts.js").SplitClipRequest;
+type TrimClipRequest = import("../shared/timeline-editing-contracts.js").TrimClipRequest;
+type UpdateTextClipRequest = import("../shared/timeline-editing-contracts.js").UpdateTextClipRequest;
+type UpdateTrackStateRequest = import("../shared/timeline-editing-contracts.js").UpdateTrackStateRequest;
 
 const IPC_CHANNELS = Object.freeze({
   systemGetRuntimeInfo: "system:get-runtime-info",
@@ -56,6 +64,14 @@ const IPC_CHANNELS = Object.freeze({
   projectsDuplicate: "projects:duplicate",
   projectsSetStatus: "projects:set-status",
   projectsDelete: "projects:delete",
+  timelineAddMediaClip: "timeline:add-media-clip",
+  timelineMoveClip: "timeline:move-clip",
+  timelineTrimClip: "timeline:trim-clip",
+  timelineSplitClip: "timeline:split-clip",
+  timelineDeleteClip: "timeline:delete-clip",
+  timelineUpdateTrackState: "timeline:update-track-state",
+  timelineAddTextClip: "timeline:add-text-clip",
+  timelineUpdateTextClip: "timeline:update-text-clip",
   mediaChooseAndImport: "media:choose-and-import",
   mediaGetEngineStatus: "media:get-engine-status",
   mediaAnalyze: "media:analyze",
@@ -130,6 +146,48 @@ const bridge: EditarBridge = Object.freeze({
     delete: (input: ProjectIdInput) =>
       invoke<DeleteProjectResult, ProjectIdInput>(
         IPC_CHANNELS.projectsDelete,
+        input,
+      ),
+  }),
+  timeline: Object.freeze({
+    addMediaClip: (input: AddMediaClipRequest) =>
+      invoke<ProjectDocument, AddMediaClipRequest>(
+        IPC_CHANNELS.timelineAddMediaClip,
+        input,
+      ),
+    moveClip: (input: MoveClipRequest) =>
+      invoke<ProjectDocument, MoveClipRequest>(
+        IPC_CHANNELS.timelineMoveClip,
+        input,
+      ),
+    trimClip: (input: TrimClipRequest) =>
+      invoke<ProjectDocument, TrimClipRequest>(
+        IPC_CHANNELS.timelineTrimClip,
+        input,
+      ),
+    splitClip: (input: SplitClipRequest) =>
+      invoke<ProjectDocument, SplitClipRequest>(
+        IPC_CHANNELS.timelineSplitClip,
+        input,
+      ),
+    deleteClip: (input: DeleteClipRequest) =>
+      invoke<ProjectDocument, DeleteClipRequest>(
+        IPC_CHANNELS.timelineDeleteClip,
+        input,
+      ),
+    updateTrackState: (input: UpdateTrackStateRequest) =>
+      invoke<ProjectDocument, UpdateTrackStateRequest>(
+        IPC_CHANNELS.timelineUpdateTrackState,
+        input,
+      ),
+    addTextClip: (input: AddTextClipRequest) =>
+      invoke<ProjectDocument, AddTextClipRequest>(
+        IPC_CHANNELS.timelineAddTextClip,
+        input,
+      ),
+    updateTextClip: (input: UpdateTextClipRequest) =>
+      invoke<ProjectDocument, UpdateTextClipRequest>(
+        IPC_CHANNELS.timelineUpdateTextClip,
         input,
       ),
   }),

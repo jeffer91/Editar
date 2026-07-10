@@ -5,7 +5,7 @@ Ruta o ubicación: /apps/desktop/shared/domain/text.ts
 Función o funciones:
 - Definir capas de texto reutilizables en la línea de tiempo.
 - Validar tipografía, color, alineación y contenido.
-- Preparar el modelo para subtítulos y animaciones futuras.
+- Restringir animaciones a presets conocidos y seguros.
 ========================================================= */
 
 import { assertDomain } from "./domain-error.js";
@@ -19,6 +19,12 @@ import {
 type TextAlignment = "left" | "center" | "right" | "justify";
 type TextVerticalAlignment = "top" | "middle" | "bottom";
 type FontStyle = "normal" | "italic";
+type TextAnimationPresetId =
+  | "fade"
+  | "slide-up"
+  | "slide-left"
+  | "scale-in"
+  | "typewriter";
 
 interface TextStyle {
   readonly fontFamily: string;
@@ -36,7 +42,7 @@ interface TextStyle {
 }
 
 interface TextAnimationReference {
-  readonly presetId: string;
+  readonly presetId: TextAnimationPresetId;
   readonly durationMs: number;
 }
 
@@ -60,6 +66,14 @@ interface CreateTextLayerInput {
   readonly exitAnimation?: TextAnimationReference;
 }
 
+const TEXT_ANIMATION_PRESET_IDS: readonly TextAnimationPresetId[] = Object.freeze([
+  "fade",
+  "slide-up",
+  "slide-left",
+  "scale-in",
+  "typewriter",
+]);
+
 const DEFAULT_TEXT_STYLE: TextStyle = Object.freeze({
   fontFamily: "Inter",
   fontSizePx: 64,
@@ -80,8 +94,12 @@ function validateAnimationReference(
   value: TextAnimationReference,
   field: string,
 ): TextAnimationReference {
-  const presetId = normalizeName(value.presetId, `${field}.presetId`, 120);
-
+  assertDomain(
+    TEXT_ANIMATION_PRESET_IDS.includes(value.presetId),
+    "UNSUPPORTED_VALUE",
+    `${field}.presetId`,
+    "La animación de texto seleccionada no está permitida.",
+  );
   assertDomain(
     Number.isSafeInteger(value.durationMs) &&
       value.durationMs >= 0 &&
@@ -91,7 +109,10 @@ function validateAnimationReference(
     "La duración de la animación debe estar entre 0 y 60000 ms.",
   );
 
-  return Object.freeze({ presetId, durationMs: value.durationMs });
+  return Object.freeze({
+    presetId: value.presetId,
+    durationMs: value.durationMs,
+  });
 }
 
 function validateTextStyle(value: TextStyle): TextStyle {
@@ -184,11 +205,14 @@ function createTextLayer(input: CreateTextLayerInput): TextLayer {
 
 export {
   DEFAULT_TEXT_STYLE,
+  TEXT_ANIMATION_PRESET_IDS,
   createTextLayer,
+  validateAnimationReference,
   validateTextStyle,
   type CreateTextLayerInput,
   type FontStyle,
   type TextAlignment,
+  type TextAnimationPresetId,
   type TextAnimationReference,
   type TextLayer,
   type TextStyle,

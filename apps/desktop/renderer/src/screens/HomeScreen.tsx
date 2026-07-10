@@ -5,7 +5,7 @@ Ruta o ubicación: /apps/desktop/renderer/src/screens/HomeScreen.tsx
 Función o funciones:
 - Mostrar el panel de inicio de la aplicación.
 - Presentar accesos directos hacia los módulos principales.
-- Informar análisis acústico y reducción automática de silencios.
+- Informar edición funcional de clips y textos animados.
 ========================================================= */
 
 import { DOMAIN_SCHEMA_VERSION } from "../../../shared/domain";
@@ -31,8 +31,8 @@ const moduleCards = [
     route: "editor" as const,
     icon: "editor" as const,
     title: "Editor",
-    description: "Detecta, acorta o elimina silencios sin tocar originales.",
-    status: "Audio automático",
+    description: "Añade, mueve, recorta y divide clips y textos animados.",
+    status: "Línea de tiempo funcional",
   },
   {
     route: "jobs" as const,
@@ -66,12 +66,14 @@ function HomeScreen({
     <div className="screen-stack">
       <section className="dashboard-hero">
         <div className="dashboard-hero__content">
-          <span className="section-label">BLOQUES 11–12 · AUDIO Y SILENCIOS</span>
-          <h2>El editor ya detecta y reduce silencios automáticamente</h2>
+          <span className="section-label">
+            BLOQUES 13–14 · LÍNEA DE TIEMPO Y TEXTOS
+          </span>
+          <h2>El editor ya permite construir una secuencia real de clips</h2>
           <p>
-            FFmpeg identifica pausas mediante umbral y duración mínima. Después
-            puede acortarlas o eliminarlas creando una versión nueva, mientras el
-            archivo original y el análisis anterior permanecen intactos.
+            Los medios pueden añadirse, moverse, recortarse, dividirse y
+            eliminarse sin modificar los originales. También existen títulos,
+            subtítulos, rótulos y textos flotantes con animaciones editables.
           </p>
           <div className="dashboard-hero__actions">
             <button
@@ -79,22 +81,22 @@ function HomeScreen({
               type="button"
               onClick={() => onNavigate("editor")}
             >
-              Procesar audio
+              Abrir línea de tiempo
               <AppIcon name="arrow" size={18} />
             </button>
             <button
               className="secondary-button"
               type="button"
-              onClick={() => onNavigate("jobs")}
+              onClick={() => onNavigate("projects")}
             >
-              Revisar trabajos
+              Elegir proyecto
             </button>
           </div>
         </div>
 
         <div className="dashboard-preview" aria-hidden="true">
           <div className="dashboard-preview__monitor">
-            <span className="dashboard-preview__play">▶</span>
+            <span className="dashboard-preview__play">TÍTULO</span>
           </div>
           <div className="dashboard-preview__timeline">
             <span className="preview-track preview-track--video" />
@@ -110,8 +112,8 @@ function HomeScreen({
             <AppIcon name="shield" />
           </span>
           <div>
-            <small>Originales</small>
-            <strong>Siempre intactos</strong>
+            <small>Edición</small>
+            <strong>No destructiva</strong>
           </div>
         </article>
         <article className="metric-card">
@@ -125,11 +127,11 @@ function HomeScreen({
         </article>
         <article className="metric-card">
           <span className="metric-card__icon">
-            <AppIcon name="audio" />
+            <AppIcon name="editor" />
           </span>
           <div>
-            <small>Procesamiento</small>
-            <strong>silencedetect + concat</strong>
+            <small>Operaciones</small>
+            <strong>Mover · cortar · dividir</strong>
           </div>
         </article>
         <article className="metric-card">
@@ -139,7 +141,8 @@ function HomeScreen({
           <div>
             <small>Entorno · latencia</small>
             <strong>
-              {runtime?.platform ?? "Consultando"} · {latencyMs === null ? "…" : `${latencyMs} ms`}
+              {runtime?.platform ?? "Consultando"} ·{" "}
+              {latencyMs === null ? "…" : `${latencyMs} ms`}
             </strong>
           </div>
         </article>

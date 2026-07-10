@@ -1,0 +1,491 @@
+/* =========================================================
+Nombre completo: timeline-editor.css
+Ruta o ubicación: /apps/desktop/renderer/src/timeline-editor.css
+
+Función o funciones:
+- Estilizar la línea de tiempo funcional y sus clips.
+- Presentar controles de pistas, medios y plantillas de texto.
+- Estilizar el inspector y la previsualización animada.
+========================================================= */
+
+.timeline-editor {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: #ffffff;
+}
+
+.timeline-editor__toolbar {
+  display: grid;
+  grid-template-columns: minmax(150px, 0.8fr) minmax(220px, 1.2fr) minmax(250px, 1.4fr) 150px;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border-bottom: 1px solid var(--border);
+  background: #fbfbfe;
+}
+
+.timeline-editor__toolbar > div:first-child strong,
+.timeline-editor__toolbar > div:first-child small {
+  display: block;
+}
+
+.timeline-editor__toolbar > div:first-child strong {
+  font-size: 0.76rem;
+}
+
+.timeline-editor__toolbar > div:first-child small {
+  margin-top: 3px;
+  color: var(--text-muted);
+  font-size: 0.56rem;
+}
+
+.timeline-editor__media-tools,
+.timeline-editor__text-tools {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 5px;
+}
+
+.timeline-editor__media-tools select {
+  min-width: 0;
+  flex: 1;
+  height: 30px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: #ffffff;
+  font-size: 0.56rem;
+}
+
+.timeline-editor__media-tools button,
+.timeline-editor__text-tools button {
+  min-height: 30px;
+  padding: 5px 8px;
+  border: 1px solid #cfcaf8;
+  border-radius: 7px;
+  color: #4f48b7;
+  background: #f1efff;
+  font-size: 0.52rem;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.timeline-editor__media-tools button:disabled,
+.timeline-editor__text-tools button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.timeline-editor__zoom {
+  display: grid;
+  gap: 4px;
+  color: var(--text-muted);
+  font-size: 0.52rem;
+  font-weight: 700;
+}
+
+.timeline-editor__zoom input {
+  width: 100%;
+}
+
+.timeline-editor__ruler,
+.timeline-editor__track {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+}
+
+.timeline-editor__ruler {
+  min-height: 28px;
+  border-bottom: 1px solid var(--border);
+  background: #f6f7fb;
+}
+
+.timeline-editor__ruler-spacer {
+  border-right: 1px solid var(--border);
+}
+
+.timeline-editor__ruler-lane {
+  position: relative;
+}
+
+.timeline-editor__ruler-lane i {
+  position: absolute;
+  top: 6px;
+  color: var(--text-muted);
+  font-size: 0.48rem;
+  font-style: normal;
+  transform: translateX(-50%);
+}
+
+.timeline-editor__track {
+  min-height: 58px;
+  border-bottom: 1px solid #eceef4;
+}
+
+.timeline-editor__track:last-child {
+  border-bottom: 0;
+}
+
+.timeline-editor__track--locked {
+  opacity: 0.72;
+}
+
+.timeline-editor__track-header {
+  display: grid;
+  align-content: center;
+  gap: 2px;
+  padding: 7px;
+  border-right: 1px solid var(--border);
+  background: #fafbfe;
+}
+
+.timeline-editor__track-header strong {
+  font-size: 0.58rem;
+}
+
+.timeline-editor__track-header small {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 0.46rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.timeline-editor__track-header > span {
+  display: flex;
+  gap: 3px;
+  margin-top: 3px;
+}
+
+.timeline-editor__track-header button {
+  width: 22px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text-muted);
+  background: #ffffff;
+  font-size: 0.44rem;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.timeline-editor__track-header button.is-active {
+  border-color: #756df0;
+  color: #ffffff;
+  background: #6c63e8;
+}
+
+.timeline-editor__lane {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      transparent 0,
+      transparent calc(10% - 1px),
+      #eff1f6 calc(10% - 1px),
+      #eff1f6 10%
+    ),
+    #ffffff;
+}
+
+.timeline-editor__lane--audio {
+  background-color: #f7fcf9;
+}
+
+.timeline-editor__lane--text,
+.timeline-editor__lane--overlay {
+  background-color: #fffaf1;
+}
+
+.timeline-editor__empty {
+  position: absolute;
+  top: 50%;
+  left: 12px;
+  color: #afb4c2;
+  font-size: 0.5rem;
+  transform: translateY(-50%);
+}
+
+.timeline-clip {
+  position: absolute;
+  top: 7px;
+  bottom: 7px;
+  display: grid;
+  min-width: 12px;
+  align-content: center;
+  gap: 2px;
+  overflow: hidden;
+  padding: 5px 7px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  color: #ffffff;
+  text-align: left;
+  cursor: pointer;
+  box-shadow: 0 2px 5px rgb(34 37 54 / 10%);
+}
+
+.timeline-clip--media {
+  background: linear-gradient(135deg, #6860dd, #8179f3);
+}
+
+.timeline-editor__lane--audio .timeline-clip--media {
+  background: linear-gradient(135deg, #2f8d63, #4cb881);
+}
+
+.timeline-clip--text {
+  color: #56380d;
+  background: linear-gradient(135deg, #f2bd53, #ffd989);
+}
+
+.timeline-clip--generator {
+  background: #3e91cf;
+}
+
+.timeline-clip--adjustment {
+  background: #9154bd;
+}
+
+.timeline-clip--selected {
+  border-color: #ffffff;
+  outline: 2px solid #252047;
+  outline-offset: 1px;
+}
+
+.timeline-clip strong,
+.timeline-clip small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.timeline-clip strong {
+  font-size: 0.52rem;
+}
+
+.timeline-clip small {
+  font-size: 0.42rem;
+  opacity: 0.84;
+}
+
+.clip-inspector {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-width: 0;
+  height: 100%;
+  overflow-y: auto;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: #ffffff;
+}
+
+.clip-inspector--empty {
+  align-content: center;
+  text-align: center;
+}
+
+.clip-inspector--empty p {
+  font-size: 0.66rem;
+}
+
+.clip-inspector--empty dl {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 5px;
+  margin: 0;
+}
+
+.clip-inspector--empty dl div {
+  padding: 7px;
+  border-radius: 7px;
+  background: #f6f7fb;
+}
+
+.clip-inspector--empty dt,
+.clip-inspector--empty dd {
+  margin: 0;
+  font-size: 0.5rem;
+}
+
+.clip-inspector__heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.clip-inspector__heading h2 {
+  margin: 2px 0 0;
+  font-size: 0.86rem;
+}
+
+.clip-inspector__heading > span {
+  padding: 4px 7px;
+  border-radius: 999px;
+  color: #5650ae;
+  background: #efedff;
+  font-size: 0.48rem;
+  font-weight: 800;
+}
+
+.clip-inspector fieldset {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.clip-inspector legend {
+  padding: 0 5px;
+  color: var(--text-muted);
+  font-size: 0.55rem;
+  font-weight: 800;
+}
+
+.clip-inspector label {
+  display: grid;
+  gap: 4px;
+  color: var(--text-soft);
+  font-size: 0.52rem;
+  font-weight: 700;
+}
+
+.clip-inspector input,
+.clip-inspector select,
+.clip-inspector textarea {
+  width: 100%;
+  min-width: 0;
+  padding: 7px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  color: var(--text);
+  background: #ffffff;
+  font: inherit;
+  font-weight: 500;
+}
+
+.clip-inspector textarea {
+  resize: vertical;
+}
+
+.clip-inspector__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.clip-inspector__save {
+  padding: 8px;
+  border: 0;
+  border-radius: 8px;
+  color: #ffffff;
+  background: var(--primary);
+  font-size: 0.54rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.clip-inspector__actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.clip-inspector__actions button {
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-soft);
+  background: #ffffff;
+  font-size: 0.52rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.clip-inspector__actions button.is-danger {
+  border-color: #efc7c4;
+  color: #a3423b;
+  background: #fff3f2;
+}
+
+.clip-inspector button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.editor-monitor__text-preview {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(78%, 760px);
+  padding: 8px 14px;
+  border-radius: 8px;
+  white-space: pre-wrap;
+  transform: translate(-50%, -50%);
+  transform-origin: center;
+}
+
+.editor-monitor__text-preview--fade {
+  animation: editar-text-fade 1.4s ease-in-out infinite alternate;
+}
+
+.editor-monitor__text-preview--slide-up {
+  animation: editar-text-slide-up 1.4s ease-in-out infinite alternate;
+}
+
+.editor-monitor__text-preview--slide-left {
+  animation: editar-text-slide-left 1.4s ease-in-out infinite alternate;
+}
+
+.editor-monitor__text-preview--scale-in {
+  animation: editar-text-scale 1.4s ease-in-out infinite alternate;
+}
+
+.editor-monitor__text-preview--typewriter {
+  overflow: hidden;
+  animation: editar-text-typewriter 2s steps(20) infinite alternate;
+}
+
+@keyframes editar-text-fade {
+  from { opacity: 0.15; }
+  to { opacity: 1; }
+}
+
+@keyframes editar-text-slide-up {
+  from { opacity: 0; transform: translate(-50%, -20%); }
+  to { opacity: 1; transform: translate(-50%, -50%); }
+}
+
+@keyframes editar-text-slide-left {
+  from { opacity: 0; transform: translate(-25%, -50%); }
+  to { opacity: 1; transform: translate(-50%, -50%); }
+}
+
+@keyframes editar-text-scale {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(0.65); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
+@keyframes editar-text-typewriter {
+  from { max-width: 0; opacity: 0.4; }
+  to { max-width: 78%; opacity: 1; }
+}
+
+@media (max-width: 1250px) {
+  .timeline-editor__toolbar {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .timeline-editor__text-tools {
+    flex-wrap: wrap;
+  }
+}
