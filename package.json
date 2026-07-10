@@ -13,10 +13,12 @@
     "build:renderer": "vite build",
     "build:electron": "tsc -p tsconfig.electron.json",
     "typecheck": "tsc -p tsconfig.renderer.json --noEmit && tsc -p tsconfig.electron.json --noEmit",
+    "test": "node --test tests/*.test.mjs",
     "test:ipc": "node --test tests/ipc-validation.test.mjs",
+    "test:navigation": "node --test tests/navigation.test.mjs",
     "clean": "node scripts/clean.mjs",
     "start": "npm run build && electron .",
-    "verify": "npm run build && npm run test:ipc"
+    "verify": "npm run build && npm test"
   },
   "engines": {
     "node": ">=22.12.0",
