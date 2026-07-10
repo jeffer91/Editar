@@ -3,23 +3,29 @@ Nombre completo: timeline-editing-service.ts
 Ruta o ubicación: /apps/desktop/main/timeline/timeline-editing-service.ts
 
 Función o funciones:
-- Coordinar operaciones de clips, pistas, textos, audio y video.
+- Coordinar operaciones de clips, audio, video, transiciones y sonidos.
 - Seleccionar pistas y posiciones predeterminadas.
 - Persistir cada edición con snapshot recuperable.
 ========================================================= */
 
 import {
   addMediaClip,
+  addSoundEffectCue,
   addTextClip,
   appendPositionForTrack,
   millisecondsToMicroseconds,
   moveClip,
+  pruneInvalidTransitions,
   removeClip,
+  removeSoundEffectCue,
+  removeTransition,
   requireTextLayerForClip,
+  setTransition,
   splitClip,
   trimClip,
   updateClipAudioMix,
   updateClipVisualProperties,
+  updateSoundEffectCue,
   updateTextLayerForClip,
   updateTrackState,
   type EntityId,
@@ -29,13 +35,18 @@ import {
 } from "../../shared/domain/index.js";
 import type {
   AddMediaClipRequest,
+  AddSoundEffectRequest,
   AddTextClipRequest,
   DeleteClipRequest,
+  DeleteSoundEffectRequest,
   MoveClipRequest,
+  RemoveTransitionRequest,
+  SetTransitionRequest,
   SplitClipRequest,
   TrimClipRequest,
   UpdateClipAudioMixRequest,
   UpdateClipVisualRequest,
+  UpdateSoundEffectRequest,
   UpdateTextClipRequest,
   UpdateTrackStateRequest,
 } from "../../shared/timeline-editing-contracts.js";
@@ -55,7 +66,6 @@ class TimelineEditingService {
   async addMediaClip(input: AddMediaClipRequest): Promise<ProjectDocument> {
     const document = await this.requireDocument(input.projectId);
     const media = document.media.find((candidate) => candidate.id === input.mediaId);
-
     if (!media) {
       throw new TimelineEditingConflictError(
         "El recurso seleccionado no pertenece al proyecto.",
@@ -98,7 +108,7 @@ class TimelineEditingService {
 
   async moveClip(input: MoveClipRequest): Promise<ProjectDocument> {
     const document = await this.requireDocument(input.projectId);
-    const updated = moveClip(document, {
+    const moved = moveClip(document, {
       clipId: input.clipId,
       trackId: input.trackId,
       timelineStartUs: millisecondsToMicroseconds(
@@ -106,13 +116,12 @@ class TimelineEditingService {
         "timelineStartMs",
       ),
     });
-
-    return this.save(updated, "clip movido");
+    return this.save(pruneInvalidTransitions(moved), "clip movido");
   }
 
   async trimClip(input: TrimClipRequest): Promise<ProjectDocument> {
     const document = await this.requireDocument(input.projectId);
-    const updated = trimClip(document, {
+    const trimmed = trimClip(document, {
       clipId: input.clipId,
       timelineStartUs: millisecondsToMicroseconds(
         input.timelineStartMs,
@@ -124,25 +133,21 @@ class TimelineEditingService {
           ? undefined
           : millisecondsToMicroseconds(input.sourceStartMs, "sourceStartMs"),
     });
-
-    return this.save(updated, "clip recortado");
+    return this.save(pruneInvalidTransitions(trimmed), "clip recortado");
   }
 
   async splitClip(input: SplitClipRequest): Promise<ProjectDocument> {
     const document = await this.requireDocument(input.projectId);
-    const updated = splitClip(document, {
+    const split = splitClip(document, {
       clipId: input.clipId,
       splitAtUs: millisecondsToMicroseconds(input.splitAtMs, "splitAtMs"),
     });
-
-    return this.save(updated, "clip dividido");
+    return this.save(pruneInvalidTransitions(split), "clip dividido");
   }
 
   async deleteClip(input: DeleteClipRequest): Promise<ProjectDocument> {
     const document = await this.requireDocument(input.projectId);
-    const updated = removeClip(document, input.clipId);
-
-    return this.save(updated, "clip eliminado");
+    return this.save(removeClip(document, input.clipId), "clip eliminado");
   }
 
   async updateTrackState(
@@ -155,7 +160,6 @@ class TimelineEditingService {
       hidden: input.hidden,
       locked: input.locked,
     });
-
     return this.save(updated, "estado de pista actualizado");
   }
 
@@ -178,7 +182,6 @@ class TimelineEditingService {
         "durationMs",
       ),
     });
-
     return this.save(updated, `texto añadido: ${input.templateId}`);
   }
 
@@ -202,7 +205,6 @@ class TimelineEditingService {
       entranceAnimation,
       exitAnimation,
     });
-
     return this.save(updated, "texto actualizado");
   }
 
@@ -220,7 +222,6 @@ class TimelineEditingService {
       normalize: input.normalize,
       normalizationTargetDb: input.normalizationTargetDb,
     });
-
     return this.save(updated, "mezcla de audio actualizada");
   }
 
@@ -240,8 +241,74 @@ class TimelineEditingService {
       ),
       animationEasing: input.animationEasing,
     });
-
     return this.save(updated, "efectos visuales actualizados");
+  }
+
+  async setTransition(input: SetTransitionRequest): Promise<ProjectDocument> {
+    const document = await this.requireDocument(input.projectId);
+    const updated = setTransition(document, {
+      fromClipId: input.fromClipId,
+      toClipId: input.toClipId,
+      presetId: input.presetId,
+      durationUs: millisecondsToMicroseconds(input.durationMs, "durationMs"),
+      alignment: input.alignment,
+    });
+    return this.save(updated, "transición actualizada");
+  }
+
+  async removeTransition(
+    input: RemoveTransitionRequest,
+  ): Promise<ProjectDocument> {
+    const document = await this.requireDocument(input.projectId);
+    return this.save(
+      removeTransition(document, input.transitionId),
+      "transición eliminada",
+    );
+  }
+
+  async addSoundEffect(
+    input: AddSoundEffectRequest,
+  ): Promise<ProjectDocument> {
+    const document = await this.requireDocument(input.projectId);
+    const updated = addSoundEffectCue(document, {
+      sequenceId: input.sequenceId,
+      presetId: input.presetId,
+      startOffsetUs: millisecondsToMicroseconds(input.startMs, "startMs"),
+      durationUs: millisecondsToMicroseconds(input.durationMs, "durationMs"),
+      gainDb: input.gainDb,
+      pan: input.pan,
+      fadeInUs: millisecondsToMicroseconds(input.fadeInMs, "fadeInMs"),
+      fadeOutUs: millisecondsToMicroseconds(input.fadeOutMs, "fadeOutMs"),
+    });
+    return this.save(updated, `efecto de sonido añadido: ${input.presetId}`);
+  }
+
+  async updateSoundEffect(
+    input: UpdateSoundEffectRequest,
+  ): Promise<ProjectDocument> {
+    const document = await this.requireDocument(input.projectId);
+    const updated = updateSoundEffectCue(document, {
+      effectId: input.effectId,
+      sequenceId: input.sequenceId,
+      presetId: input.presetId,
+      startOffsetUs: millisecondsToMicroseconds(input.startMs, "startMs"),
+      durationUs: millisecondsToMicroseconds(input.durationMs, "durationMs"),
+      gainDb: input.gainDb,
+      pan: input.pan,
+      fadeInUs: millisecondsToMicroseconds(input.fadeInMs, "fadeInMs"),
+      fadeOutUs: millisecondsToMicroseconds(input.fadeOutMs, "fadeOutMs"),
+    });
+    return this.save(updated, "efecto de sonido actualizado");
+  }
+
+  async deleteSoundEffect(
+    input: DeleteSoundEffectRequest,
+  ): Promise<ProjectDocument> {
+    const document = await this.requireDocument(input.projectId);
+    return this.save(
+      removeSoundEffectCue(document, input.effectId),
+      "efecto de sonido eliminado",
+    );
   }
 
   private animationPatch(
@@ -249,20 +316,10 @@ class TimelineEditingService {
     durationMs: number | undefined,
     current: TextAnimationReference | undefined,
   ): TextAnimationReference | null | undefined {
-    if (presetId === undefined && durationMs === undefined) {
-      return undefined;
-    }
-
-    if (presetId === null) {
-      return null;
-    }
-
+    if (presetId === undefined && durationMs === undefined) return undefined;
+    if (presetId === null) return null;
     const resolvedPreset = presetId ?? current?.presetId;
-
-    if (!resolvedPreset) {
-      return undefined;
-    }
-
+    if (!resolvedPreset) return undefined;
     return Object.freeze({
       presetId: resolvedPreset,
       durationMs: Math.round(durationMs ?? current?.durationMs ?? 350),
@@ -279,13 +336,11 @@ class TimelineEditingService {
         candidate.sequenceId === document.project.mainSequenceId &&
         candidate.kind === targetKind,
     );
-
     if (!track) {
       throw new TimelineEditingConflictError(
         `El proyecto no tiene una pista ${targetKind} disponible.`,
       );
     }
-
     return track;
   }
 
@@ -295,13 +350,11 @@ class TimelineEditingService {
         candidate.sequenceId === document.project.mainSequenceId &&
         candidate.kind === "text",
     );
-
     if (!track) {
       throw new TimelineEditingConflictError(
         "El proyecto no tiene una pista de texto disponible.",
       );
     }
-
     return track;
   }
 
@@ -310,11 +363,9 @@ class TimelineEditingService {
     trackId: EntityId<"track">,
   ): Track {
     const track = document.tracks.find((candidate) => candidate.id === trackId);
-
     if (!track) {
       throw new TimelineEditingConflictError("La pista seleccionada no existe.");
     }
-
     return track;
   }
 
@@ -322,11 +373,7 @@ class TimelineEditingService {
     projectId: EntityId<"project">,
   ): Promise<ProjectDocument> {
     const document = await this.repository.findById(projectId);
-
-    if (!document) {
-      throw new ProjectNotFoundError(projectId);
-    }
-
+    if (!document) throw new ProjectNotFoundError(projectId);
     return document;
   }
 
@@ -338,12 +385,8 @@ class TimelineEditingService {
       snapshotReason,
       keepSnapshots: 50,
     });
-
     return document;
   }
 }
 
-export {
-  TimelineEditingConflictError,
-  TimelineEditingService,
-};
+export { TimelineEditingConflictError, TimelineEditingService };
