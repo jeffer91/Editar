@@ -24,6 +24,15 @@ interface ClipTimingInput {
   readonly sourceStartMs?: number;
 }
 
+interface TextInspectorInput {
+  readonly content: string;
+  readonly style: Partial<TextStyle>;
+  readonly entrancePresetId: TextAnimationPresetId | null;
+  readonly entranceDurationMs: number;
+  readonly exitPresetId: TextAnimationPresetId | null;
+  readonly exitDurationMs: number;
+}
+
 interface ClipInspectorProps {
   readonly project: ProjectDocument;
   readonly selectedClipId: EntityId<"clip"> | null;
@@ -36,14 +45,7 @@ interface ClipInspectorProps {
   readonly onDelete: (clipId: EntityId<"clip">) => void;
   readonly onUpdateText: (
     clipId: EntityId<"clip">,
-    input: {
-      readonly content: string;
-      readonly style: Partial<TextStyle>;
-      readonly entrancePresetId: TextAnimationPresetId | null;
-      readonly entranceDurationMs: number;
-      readonly exitPresetId: TextAnimationPresetId | null;
-      readonly exitDurationMs: number;
-    },
+    input: TextInspectorInput,
   ) => void;
 }
 
@@ -63,13 +65,13 @@ function ClipInspector({
   const clip = project.clips.find((candidate) => candidate.id === selectedClipId);
   const textLayerId =
     clip?.source.type === "text" ? clip.source.textLayerId : null;
+  const mediaId = clip?.source.type === "media" ? clip.source.mediaId : null;
   const layer = textLayerId
     ? project.textLayers.find((candidate) => candidate.id === textLayerId)
     : undefined;
-  const selectedMedia =
-    clip?.source.type === "media"
-      ? project.media.find((candidate) => candidate.id === clip.source.mediaId)
-      : undefined;
+  const selectedMedia = mediaId
+    ? project.media.find((candidate) => candidate.id === mediaId)
+    : undefined;
   const compatibleTracks = useMemo(() => {
     if (!clip) return [];
 
@@ -78,35 +80,35 @@ function ClipInspector({
         return track.kind === "text" || track.kind === "overlay";
       }
 
-      if (clip.kind === "media") {
-        if (selectedMedia?.kind === "audio") {
-          return track.kind === "audio";
-        }
-
-        if (selectedMedia?.kind === "image") {
-          return track.kind === "video" || track.kind === "overlay";
-        }
-
-        if (selectedMedia?.kind === "video") {
-          const hasAudio =
-            selectedMedia.metadata?.kind === "video" &&
-            selectedMedia.metadata.audio !== undefined;
-
-          return (
-            track.kind === "video" ||
-            track.kind === "overlay" ||
-            (track.kind === "audio" && hasAudio)
-          );
-        }
-
-        return track.id === clip.trackId;
-      }
-
       if (clip.kind === "generator") {
         return track.kind === "video" || track.kind === "overlay";
       }
 
-      return track.kind === "adjustment";
+      if (clip.kind === "adjustment") {
+        return track.kind === "adjustment";
+      }
+
+      if (selectedMedia?.kind === "audio") {
+        return track.kind === "audio";
+      }
+
+      if (selectedMedia?.kind === "image") {
+        return track.kind === "video" || track.kind === "overlay";
+      }
+
+      if (selectedMedia?.kind === "video") {
+        const hasAudio =
+          selectedMedia.metadata?.kind === "video" &&
+          selectedMedia.metadata.audio !== undefined;
+
+        return (
+          track.kind === "video" ||
+          track.kind === "overlay" ||
+          (track.kind === "audio" && hasAudio)
+        );
+      }
+
+      return track.id === clip.trackId;
     });
   }, [clip, project.tracks, selectedMedia]);
 
@@ -164,18 +166,9 @@ function ClipInspector({
           texto.
         </p>
         <dl>
-          <div>
-            <dt>Clips</dt>
-            <dd>{project.clips.length}</dd>
-          </div>
-          <div>
-            <dt>Textos</dt>
-            <dd>{project.textLayers.length}</dd>
-          </div>
-          <div>
-            <dt>Duración</dt>
-            <dd>{seconds(project.sequences[0]?.durationUs ?? 0)} s</dd>
-          </div>
+          <div><dt>Clips</dt><dd>{project.clips.length}</dd></div>
+          <div><dt>Textos</dt><dd>{project.textLayers.length}</dd></div>
+          <div><dt>Duración</dt><dd>{seconds(project.sequences[0]?.durationUs ?? 0)} s</dd></div>
         </dl>
       </aside>
     );
@@ -207,9 +200,7 @@ function ClipInspector({
             onChange={(event) => setTrackId(event.target.value)}
           >
             {compatibleTracks.map((track) => (
-              <option value={track.id} key={track.id}>
-                {track.name}
-              </option>
+              <option value={track.id} key={track.id}>{track.name}</option>
             ))}
           </select>
         </label>
@@ -297,9 +288,7 @@ function ClipInspector({
                 onChange={(event) => setFontWeight(Number(event.target.value))}
               >
                 {[300, 400, 500, 600, 700, 800, 900].map((weight) => (
-                  <option value={weight} key={weight}>
-                    {weight}
-                  </option>
+                  <option value={weight} key={weight}>{weight}</option>
                 ))}
               </select>
             </label>
@@ -360,9 +349,7 @@ function ClipInspector({
               >
                 <option value="none">Sin animación</option>
                 {TEXT_ANIMATION_PRESET_IDS.map((preset) => (
-                  <option value={preset} key={preset}>
-                    {preset}
-                  </option>
+                  <option value={preset} key={preset}>{preset}</option>
                 ))}
               </select>
             </label>
@@ -388,9 +375,7 @@ function ClipInspector({
               >
                 <option value="none">Sin animación</option>
                 {TEXT_ANIMATION_PRESET_IDS.map((preset) => (
-                  <option value={preset} key={preset}>
-                    {preset}
-                  </option>
+                  <option value={preset} key={preset}>{preset}</option>
                 ))}
               </select>
             </label>
@@ -459,4 +444,5 @@ export {
   seconds,
   type ClipInspectorProps,
   type ClipTimingInput,
+  type TextInspectorInput,
 };
