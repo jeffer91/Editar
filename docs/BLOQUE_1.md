@@ -10,6 +10,10 @@ Función o funciones:
 
 # Bloque 1 — Inicialización de la aplicación
 
+## Estado
+
+**COMPLETADO Y VERIFICADO**
+
 ## Objetivo
 
 Construir una base ejecutable con Electron, React, TypeScript y Vite, manteniendo separados el proceso principal, el preload y la interfaz.
@@ -22,9 +26,21 @@ Construir una base ejecutable con Electron, React, TypeScript y Vite, manteniend
 - Interfaz React inicial.
 - Configuración TypeScript separada por entorno.
 - Configuración Vite para desarrollo y producción.
+- Declaraciones de tipos para recursos estáticos.
 - Limpieza de compilaciones anteriores.
 - Exclusiones de Git.
 - Verificación automática mediante GitHub Actions.
+
+## Verificación realizada
+
+GitHub Actions confirmó correctamente:
+
+1. Instalación de dependencias.
+2. Limpieza de compilaciones anteriores.
+3. Typecheck del renderer.
+4. Typecheck de Electron.
+5. Compilación del renderer.
+6. Compilación de Electron.
 
 ## Criterios de aprobación
 
@@ -47,13 +63,15 @@ Construir una base ejecutable con Electron, React, TypeScript y Vite, manteniend
 7. `/apps/desktop/preload/preload.cts`
 8. `/apps/desktop/renderer/index.html`
 9. `/apps/desktop/renderer/src/global.d.ts`
-10. `/apps/desktop/renderer/src/main.tsx`
-11. `/apps/desktop/renderer/src/App.tsx`
-12. `/apps/desktop/renderer/src/styles.css`
-13. `/scripts/clean.mjs`
-14. `/.gitignore`
-15. `/.github/workflows/verify.yml`
-16. `/README.md`
+10. `/apps/desktop/renderer/src/vite-env.d.ts`
+11. `/apps/desktop/renderer/src/main.tsx`
+12. `/apps/desktop/renderer/src/App.tsx`
+13. `/apps/desktop/renderer/src/styles.css`
+14. `/scripts/clean.mjs`
+15. `/.gitignore`
+16. `/.github/workflows/verify.yml`
+17. `/README.md`
+18. `/docs/BLOQUE_1.md`
 
 ## Próximo bloque
 
