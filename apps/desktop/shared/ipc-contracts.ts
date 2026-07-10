@@ -29,6 +29,8 @@ const IPC_CHANNELS = Object.freeze({
   mediaChooseAndImport: "media:choose-and-import",
   mediaGetEngineStatus: "media:get-engine-status",
   mediaAnalyze: "media:analyze",
+  mediaAnalyzeAudio: "media:analyze-audio",
+  mediaReduceSilence: "media:reduce-silence",
   mediaGenerateDerivatives: "media:generate-derivatives",
   mediaGetCacheStatus: "media:get-cache-status",
   mediaClearCache: "media:clear-cache",
