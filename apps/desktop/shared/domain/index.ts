@@ -11,6 +11,7 @@ Función o funciones:
 export * from "./domain-error.js";
 export * from "./effects.js";
 export * from "./jobs.js";
+export * from "./media-derivative-operations.js";
 export * from "./media.js";
 export * from "./primitives.js";
 export * from "./project-document.js";
