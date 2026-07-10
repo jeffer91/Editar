@@ -5,16 +5,19 @@ Ruta o ubicación: /apps/desktop/main/main.ts
 Función o funciones:
 - Iniciar el proceso principal de Electron.
 - Crear una ventana segura para la aplicación.
-- Cargar Vite en desarrollo y los archivos compilados en producción.
+- Registrar IPC validado antes de cargar la interfaz.
 - Gestionar correctamente el ciclo de vida de la aplicación.
 ========================================================= */
 
 import { app, BrowserWindow } from "electron";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { registerSystemIpc } from "./ipc/register-system-ipc.js";
+import { applyWindowSecurity } from "./security/window-security.js";
 
 const currentFile = fileURLToPath(import.meta.url);
 const currentDirectory = dirname(currentFile);
+const developmentUrl = process.env.VITE_DEV_SERVER_URL;
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -43,8 +46,11 @@ async function createMainWindow(): Promise<void> {
       sandbox: true,
       webSecurity: true,
       devTools: !app.isPackaged,
+      webviewTag: false,
     },
   });
+
+  applyWindowSecurity(mainWindow, developmentUrl);
 
   mainWindow.once("ready-to-show", () => {
     mainWindow?.show();
@@ -58,8 +64,6 @@ async function createMainWindow(): Promise<void> {
     console.error("El proceso renderer terminó inesperadamente.", details);
   });
 
-  const developmentUrl = process.env.VITE_DEV_SERVER_URL;
-
   if (!app.isPackaged && developmentUrl) {
     await mainWindow.loadURL(developmentUrl);
     return;
@@ -68,15 +72,22 @@ async function createMainWindow(): Promise<void> {
   await mainWindow.loadFile(getRendererPath());
 }
 
-app.whenReady().then(async () => {
-  await createMainWindow();
+app
+  .whenReady()
+  .then(async () => {
+    registerSystemIpc({ developmentUrl });
+    await createMainWindow();
 
-  app.on("activate", async () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      await createMainWindow();
-    }
+    app.on("activate", () => {
+      if (BrowserWindow.getAllWindows().length === 0) {
+        void createMainWindow();
+      }
+    });
+  })
+  .catch((error: unknown) => {
+    console.error("No fue posible iniciar la aplicación:", error);
+    app.quit();
   });
-});
 
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {
