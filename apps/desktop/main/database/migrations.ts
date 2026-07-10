@@ -181,7 +181,13 @@ const migrationDefinitions: readonly MigrationDefinition[] = [
       SET
         updated_at = COALESCE(json_extract(data_json, '$.updatedAt'), created_at),
         attempt = COALESCE(json_extract(data_json, '$.attempt'), 0),
-        max_attempts = COALESCE(json_extract(data_json, '$.maxAttempts'), 3);
+        max_attempts = COALESCE(json_extract(data_json, '$.maxAttempts'), 3),
+        data_json = json_set(
+          data_json,
+          '$.updatedAt', COALESCE(json_extract(data_json, '$.updatedAt'), created_at),
+          '$.attempt', COALESCE(json_extract(data_json, '$.attempt'), 0),
+          '$.maxAttempts', COALESCE(json_extract(data_json, '$.maxAttempts'), 3)
+        );
 
       CREATE INDEX idx_jobs_scheduler
       ON jobs(status, priority DESC, created_at ASC);
