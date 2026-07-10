@@ -4,13 +4,14 @@ Ruta o ubicación: /apps/desktop/renderer/src/screens/SettingsScreen.tsx
 
 Función o funciones:
 - Mostrar información del entorno y conectividad interna.
-- Mostrar el estado real de SQLite y su integridad.
-- Permitir crear respaldos y ejecutar diagnósticos completos.
+- Mostrar SQLite, respaldos y motores multimedia.
+- Permitir ejecutar diagnósticos completos desde una sola pantalla.
 ========================================================= */
 
 import type { RuntimeInfo } from "../../../shared/ipc-contracts";
 import { useDatabaseStatus } from "../app/use-database-status";
 import type { ConnectionState } from "../app/use-system-status";
+import { MediaEngineStatusPanel } from "../components/settings/MediaEngineStatusPanel";
 import { AppIcon } from "../components/ui/AppIcon";
 
 interface SettingsScreenProps {
@@ -155,9 +156,8 @@ function SettingsScreen({
           <span className="section-label">CONFIGURACIÓN Y SISTEMA</span>
           <h2>Control central de la aplicación</h2>
           <p>
-            Esta pantalla comprueba la comunicación segura, la base de datos
-            local, las migraciones, la integridad y los respaldos sin exponer
-            acceso directo al sistema operativo desde React.
+            Comprueba la comunicación segura, SQLite, respaldos, FFmpeg y
+            FFprobe sin exponer acceso directo al sistema operativo desde React.
           </p>
         </div>
         <span className="screen-banner__icon" aria-hidden="true">
@@ -314,6 +314,8 @@ function SettingsScreen({
             </button>
           </div>
         </aside>
+
+        <MediaEngineStatusPanel />
       </div>
     </div>
   );
