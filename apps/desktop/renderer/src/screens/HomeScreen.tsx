@@ -5,7 +5,7 @@ Ruta o ubicación: /apps/desktop/renderer/src/screens/HomeScreen.tsx
 Función o funciones:
 - Mostrar el panel de inicio de la aplicación.
 - Presentar accesos directos hacia los módulos principales.
-- Informar mezcla de audio, efectos y animaciones visuales.
+- Informar transiciones y efectos de sonido de secuencia.
 ========================================================= */
 
 import { DOMAIN_SCHEMA_VERSION } from "../../../shared/domain";
@@ -31,7 +31,7 @@ const moduleCards = [
     route: "editor" as const,
     icon: "editor" as const,
     title: "Editor",
-    description: "Mezcla audio y aplica transformaciones, filtros y animaciones.",
+    description: "Edita clips, transiciones, mezcla y eventos de sonido.",
     status: "Edición audiovisual",
   },
   {
@@ -46,7 +46,7 @@ const moduleCards = [
     icon: "library" as const,
     title: "Biblioteca",
     description: "Recursos visuales, sonidos, textos y transiciones.",
-    status: "Modelo listo",
+    status: "Modelo ampliado",
   },
   {
     route: "settings" as const,
@@ -67,13 +67,14 @@ function HomeScreen({
       <section className="dashboard-hero">
         <div className="dashboard-hero__content">
           <span className="section-label">
-            BLOQUES 15–16 · AUDIO, EFECTOS Y ANIMACIONES
+            BLOQUE 17 · TRANSICIONES Y EFECTOS DE SONIDO
           </span>
-          <h2>El editor ya permite ajustar el sonido y la imagen de cada clip</h2>
+          <h2>La secuencia ya puede conectar escenas y añadir eventos sonoros</h2>
           <p>
-            Cada clip puede conservar ganancia, paneo, fundidos y normalización,
-            además de posición, escala, rotación, opacidad, presets visuales y
-            animaciones. Todo se guarda sin modificar los archivos originales.
+            Los clips visuales contiguos admiten transiciones persistentes y la
+            secuencia incorpora una pista de efectos de sonido con posición,
+            duración, ganancia, paneo y fundidos. Todo continúa siendo no
+            destructivo.
           </p>
           <div className="dashboard-hero__actions">
             <button
@@ -81,7 +82,7 @@ function HomeScreen({
               type="button"
               onClick={() => onNavigate("editor")}
             >
-              Editar audio y video
+              Abrir editor audiovisual
               <AppIcon name="arrow" size={18} />
             </button>
             <button
@@ -96,7 +97,7 @@ function HomeScreen({
 
         <div className="dashboard-preview" aria-hidden="true">
           <div className="dashboard-preview__monitor">
-            <span className="dashboard-preview__play">FX</span>
+            <span className="dashboard-preview__play">TR</span>
           </div>
           <div className="dashboard-preview__timeline">
             <span className="preview-track preview-track--video" />
@@ -109,11 +110,20 @@ function HomeScreen({
       <section className="metrics-grid" aria-label="Estado de la aplicación">
         <article className="metric-card">
           <span className="metric-card__icon">
+            <AppIcon name="editor" />
+          </span>
+          <div>
+            <small>Transiciones visuales</small>
+            <strong>7 presets persistentes</strong>
+          </div>
+        </article>
+        <article className="metric-card">
+          <span className="metric-card__icon">
             <AppIcon name="audio" />
           </span>
           <div>
-            <small>Mezcla por clip</small>
-            <strong>Ganancia · paneo · fundidos</strong>
+            <small>Efectos de sonido</small>
+            <strong>7 eventos configurables</strong>
           </div>
         </article>
         <article className="metric-card">
@@ -123,15 +133,6 @@ function HomeScreen({
           <div>
             <small>Modelo del proyecto</small>
             <strong>Esquema v{DOMAIN_SCHEMA_VERSION}</strong>
-          </div>
-        </article>
-        <article className="metric-card">
-          <span className="metric-card__icon">
-            <AppIcon name="editor" />
-          </span>
-          <div>
-            <small>Imagen</small>
-            <strong>Transformar · filtrar · animar</strong>
           </div>
         </article>
         <article className="metric-card">
