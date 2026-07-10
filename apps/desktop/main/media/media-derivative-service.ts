@@ -15,8 +15,8 @@ import {
   type EntityId,
   type JobKind,
   type JobRecord,
+  type JobStatus,
   type MediaAsset,
-  type MediaDerivative,
 } from "../../shared/domain/index.js";
 import type {
   GeneratedDerivativeType,
@@ -33,7 +33,7 @@ import {
 import { MediaCachePaths } from "./media-cache-paths.js";
 
 const CACHE_GENERATOR_VERSION = "editar-cache-v1";
-const ACTIVE_JOB_STATUSES = Object.freeze([
+const ACTIVE_JOB_STATUSES: readonly JobStatus[] = Object.freeze([
   "pending",
   "preparing",
   "running",
@@ -204,7 +204,8 @@ class MediaDerivativeService implements MediaDerivativeScheduler {
 
     const queueItems = await this.options.jobs.list(asset.projectId);
     const jobs = queueItems.map((item) => item.job);
-    const queuedJobs: JobRecord[] = [];
+    const newJobs: JobRecord[] = [];
+    const existingJobIds: EntityId<"job">[] = [];
     let reusedCount = 0;
     let skippedCount = 0;
 
@@ -224,7 +225,7 @@ class MediaDerivativeService implements MediaDerivativeScheduler {
 
       if (active) {
         skippedCount += 1;
-        queuedJobs.push(active);
+        existingJobIds.push(active.id);
         continue;
       }
 
@@ -268,26 +269,29 @@ class MediaDerivativeService implements MediaDerivativeScheduler {
       });
 
       await this.options.jobs.insert(job);
-      queuedJobs.push(job);
+      newJobs.push(job);
     }
 
-    if (queuedJobs.some((job) => job.status === "pending")) {
+    if (newJobs.length > 0) {
       this.options.queue.wake();
     }
 
-    const queuedCount = queuedJobs.filter((job) => job.status === "pending").length;
+    const queuedCount = newJobs.length;
     const message =
       queuedCount > 0
         ? `${queuedCount} archivo${queuedCount === 1 ? "" : "s"} optimizado${queuedCount === 1 ? "" : "s"} agregado${queuedCount === 1 ? "" : "s"} a la cola.`
-        : reusedCount > 0
+        : reusedCount > 0 && skippedCount === 0
           ? "Los derivados disponibles ya coinciden con el medio original."
-          : "Los derivados ya tienen trabajos pendientes o en ejecución.";
+          : "Los derivados restantes ya tienen trabajos pendientes o en ejecución.";
 
     return Object.freeze({
       queuedCount,
       reusedCount,
       skippedCount,
-      jobIds: Object.freeze(queuedJobs.map((job) => job.id)),
+      jobIds: Object.freeze([
+        ...newJobs.map((job) => job.id),
+        ...existingJobIds,
+      ]),
       requestedTypes,
       message,
     });
