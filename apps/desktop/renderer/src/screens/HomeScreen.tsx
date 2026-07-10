@@ -5,7 +5,7 @@ Ruta o ubicación: /apps/desktop/renderer/src/screens/HomeScreen.tsx
 Función o funciones:
 - Mostrar el panel de inicio de la aplicación.
 - Presentar accesos directos hacia los módulos principales.
-- Informar el estado del dominio, medios y procesamiento.
+- Informar el estado del dominio, medios y motores multimedia.
 ========================================================= */
 
 import { DOMAIN_SCHEMA_VERSION } from "../../../shared/domain";
@@ -31,15 +31,15 @@ const moduleCards = [
     route: "editor" as const,
     icon: "editor" as const,
     title: "Editor",
-    description: "Importa videos, audios e imágenes al proyecto activo.",
-    status: "Importación activa",
+    description: "Importa medios y consulta duración, resolución y códecs.",
+    status: "FFprobe integrado",
   },
   {
     route: "jobs" as const,
     icon: "jobs" as const,
     title: "Trabajos",
-    description: "Supervisa progreso, pausas, cancelaciones y reintentos.",
-    status: "Worker Threads activos",
+    description: "Supervisa análisis, progreso, cancelaciones y reintentos.",
+    status: "Procesamiento real",
   },
   {
     route: "library" as const,
@@ -52,8 +52,8 @@ const moduleCards = [
     route: "settings" as const,
     icon: "settings" as const,
     title: "Ajustes",
-    description: "Preferencias, SQLite, respaldos y diagnóstico.",
-    status: "SQLite disponible",
+    description: "SQLite, respaldos y diagnóstico de motores multimedia.",
+    status: "FFmpeg verificable",
   },
 ] as const;
 
@@ -66,28 +66,28 @@ function HomeScreen({
     <div className="screen-stack">
       <section className="dashboard-hero">
         <div className="dashboard-hero__content">
-          <span className="section-label">BLOQUE 8 · SEGUNDO PLANO</span>
-          <h2>La aplicación ya procesa trabajos sin bloquear el editor</h2>
+          <span className="section-label">BLOQUE 9 · FFMPEG Y FFPROBE</span>
+          <h2>El editor ya obtiene metadatos técnicos reales</h2>
           <p>
-            La cola guarda estados en SQLite, respeta prioridad y dependencias,
-            limita la concurrencia y ejecuta tareas compatibles dentro de Worker
-            Threads con progreso, pausa, cancelación y recuperación.
+            FFprobe analiza videos, audios e imágenes dentro de Worker Threads.
+            La aplicación registra duración, resolución, FPS, códecs, canales y
+            frecuencia de muestreo sin modificar los archivos originales.
           </p>
           <div className="dashboard-hero__actions">
             <button
               className="primary-button"
               type="button"
-              onClick={() => onNavigate("jobs")}
+              onClick={() => onNavigate("editor")}
             >
-              Abrir Centro de trabajos
+              Abrir editor
               <AppIcon name="arrow" size={18} />
             </button>
             <button
               className="secondary-button"
               type="button"
-              onClick={() => onNavigate("editor")}
+              onClick={() => onNavigate("settings")}
             >
-              Abrir editor
+              Comprobar motores
             </button>
           </div>
         </div>
@@ -125,11 +125,11 @@ function HomeScreen({
         </article>
         <article className="metric-card">
           <span className="metric-card__icon">
-            <AppIcon name="jobs" />
+            <AppIcon name="video" />
           </span>
           <div>
-            <small>Procesamiento</small>
-            <strong>Cola + Workers</strong>
+            <small>Análisis técnico</small>
+            <strong>FFprobe + Workers</strong>
           </div>
         </article>
         <article className="metric-card">
