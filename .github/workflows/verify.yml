@@ -5,7 +5,7 @@
 # Función o funciones:
 # - Verificar automáticamente cada cambio enviado a main.
 # - Instalar dependencias y comprobar cada etapa por separado.
-# - Ejecutar pruebas del contrato y validación IPC.
+# - Ejecutar pruebas de IPC y navegación.
 # =========================================================
 
 name: Verificar aplicación
@@ -56,5 +56,5 @@ jobs:
       - name: Compilar Electron
         run: npm run build:electron
 
-      - name: Probar validación IPC
-        run: npm run test:ipc
+      - name: Ejecutar pruebas automáticas
+        run: npm test
