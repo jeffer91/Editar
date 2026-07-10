@@ -29,6 +29,12 @@ interface MediaInspection {
   readonly inspectedAt?: IsoDateTime;
 }
 
+interface MediaInspectionInput {
+  readonly status: MediaInspectionStatus;
+  readonly error?: string;
+  readonly inspectedAt?: Date | string | IsoDateTime;
+}
+
 interface RationalFrameRate {
   readonly numerator: number;
   readonly denominator: number;
@@ -108,7 +114,7 @@ interface CreateMediaAssetInput {
   readonly sourceModifiedAt?: Date | string;
   readonly contentHash?: string;
   readonly availability?: MediaAvailability;
-  readonly inspection?: MediaInspection;
+  readonly inspection?: MediaInspectionInput;
   readonly metadata?: MediaMetadata;
   readonly derivatives?: readonly MediaDerivative[];
   readonly importedAt?: Date | string;
@@ -220,7 +226,7 @@ function validateDerivative(value: MediaDerivative): MediaDerivative {
 }
 
 function validateInspection(
-  value: MediaInspection,
+  value: MediaInspectionInput,
   metadata: MediaMetadata | undefined,
 ): MediaInspection {
   if (value.status === "ready") {
@@ -378,6 +384,7 @@ export {
   type MediaAvailability,
   type MediaDerivative,
   type MediaInspection,
+  type MediaInspectionInput,
   type MediaInspectionStatus,
   type MediaKind,
   type MediaMetadata,
