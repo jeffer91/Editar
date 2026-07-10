@@ -24,8 +24,7 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
     "sourceMap": true,
-    "declaration": false,
-    "composite": true
+    "declaration": false
   },
   "include": [
     "apps/desktop/main/**/*.ts",
