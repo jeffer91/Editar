@@ -4,8 +4,8 @@
 #
 # Función o funciones:
 # - Verificar automáticamente cada cambio enviado a main.
-# - Instalar dependencias y ejecutar la compilación completa.
-# - Detectar errores de TypeScript, Vite o Electron.
+# - Instalar dependencias y comprobar cada etapa por separado.
+# - Detectar con claridad errores de TypeScript o compilación.
 # =========================================================
 
 name: Verificar aplicación
@@ -41,5 +41,17 @@ jobs:
       - name: Instalar dependencias
         run: npm install
 
-      - name: Verificar proyecto
-        run: npm run verify
+      - name: Limpiar compilaciones
+        run: npm run clean
+
+      - name: Verificar TypeScript del renderer
+        run: npx tsc -p tsconfig.renderer.json --noEmit
+
+      - name: Verificar TypeScript de Electron
+        run: npx tsc -p tsconfig.electron.json --noEmit
+
+      - name: Compilar renderer
+        run: npm run build:renderer
+
+      - name: Compilar Electron
+        run: npm run build:electron
