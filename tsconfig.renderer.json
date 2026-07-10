@@ -6,7 +6,7 @@
   Función o funciones:
   - Configurar TypeScript para React y el proceso renderer.
   - Aplicar las reglas estrictas compartidas del proyecto.
-  - Mantener aisladas las APIs propias del navegador.
+  - Mantener alias compatibles con TypeScript 7.
   ========================================================= */
   "extends": "./tsconfig.json",
   "compilerOptions": {
@@ -22,9 +22,8 @@
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
-    "baseUrl": ".",
     "paths": {
-      "@renderer/*": ["apps/desktop/renderer/*"]
+      "@renderer/*": ["./apps/desktop/renderer/*"]
     }
   },
   "include": [
