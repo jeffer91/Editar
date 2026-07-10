@@ -25,11 +25,8 @@ import {
 import {
   UntrustedSenderError,
   assertTrustedIpcSender,
+  type TrustedSourceOptions,
 } from "../security/trusted-sources.js";
-
-interface RegisterSystemIpcOptions {
-  readonly developmentUrl?: string;
-}
 
 function handleError<T>(payload: unknown, error: unknown): IpcResult<T> {
   const requestId = getSafeRequestId(payload);
@@ -58,15 +55,13 @@ function handleError<T>(payload: unknown, error: unknown): IpcResult<T> {
 function validateRequest(
   event: IpcMainInvokeEvent,
   payload: unknown,
-  developmentUrl?: string,
+  trustedSources: TrustedSourceOptions,
 ) {
-  assertTrustedIpcSender(event, developmentUrl);
+  assertTrustedIpcSender(event, trustedSources);
   return parseRequestEnvelope(payload);
 }
 
-function registerSystemIpc(options: RegisterSystemIpcOptions): void {
-  const { developmentUrl } = options;
-
+function registerSystemIpc(trustedSources: TrustedSourceOptions): void {
   ipcMain.removeHandler(IPC_CHANNELS.systemGetRuntimeInfo);
   ipcMain.removeHandler(IPC_CHANNELS.systemPing);
 
@@ -74,7 +69,7 @@ function registerSystemIpc(options: RegisterSystemIpcOptions): void {
     IPC_CHANNELS.systemGetRuntimeInfo,
     (event, payload): IpcResult<RuntimeInfo> => {
       try {
-        const request = validateRequest(event, payload, developmentUrl);
+        const request = validateRequest(event, payload, trustedSources);
 
         return createSuccess(request.requestId, {
           appName: app.getName(),
@@ -99,7 +94,7 @@ function registerSystemIpc(options: RegisterSystemIpcOptions): void {
       const receivedAt = Date.now();
 
       try {
-        const request = validateRequest(event, payload, developmentUrl);
+        const request = validateRequest(event, payload, trustedSources);
 
         return createSuccess(request.requestId, {
           message: "pong",
@@ -113,4 +108,4 @@ function registerSystemIpc(options: RegisterSystemIpcOptions): void {
   );
 }
 
-export { registerSystemIpc, type RegisterSystemIpcOptions };
+export { registerSystemIpc };
