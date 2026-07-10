@@ -5,7 +5,7 @@ Ruta o ubicación: /apps/desktop/main/media/media-cache-paths.ts
 Función o funciones:
 - Resolver rutas deterministas dentro de la caché multimedia.
 - Impedir traversal y borrados fuera del directorio administrado.
-- Escanear archivos finales, temporales y tamaños ocupados.
+- Crear salidas, temporales y archivos auxiliares seguros.
 ========================================================= */
 
 import { createHash } from "node:crypto";
@@ -28,7 +28,7 @@ import {
 import type {
   EntityId,
 } from "../../shared/domain/index.js";
-import type { GeneratedDerivativeType } from "../../shared/media-cache-contracts.js";
+import type { ManagedDerivativeType } from "../../shared/media-cache-contracts.js";
 
 interface CacheFileEntry {
   readonly path: string;
@@ -43,18 +43,22 @@ interface CacheScanResult {
   readonly temporaryFileCount: number;
 }
 
-const EXTENSIONS: Readonly<Record<GeneratedDerivativeType, string>> = Object.freeze({
+const EXTENSIONS: Readonly<Record<ManagedDerivativeType, string>> = Object.freeze({
   proxy: "mp4",
   thumbnail: "jpg",
   waveform: "png",
+  "silence-reduced": "mp4",
 });
+
+const SAFE_EXTENSION_PATTERN = /^[a-z0-9]{1,8}$/i;
 
 function hashSegment(value: string): string {
   return createHash("sha256").update(value).digest("hex").slice(0, 20);
 }
 
 function isTemporaryCacheFile(path: string): boolean {
-  return parse(path).name.includes(".partial-");
+  const name = parse(path).name;
+  return name.includes(".partial-") || name.includes(".aux-");
 }
 
 class MediaCachePathError extends Error {
@@ -78,13 +82,21 @@ class MediaCachePaths {
   resolveDerivativePath(
     projectId: EntityId<"project">,
     mediaId: EntityId<"media">,
-    type: GeneratedDerivativeType,
+    type: ManagedDerivativeType,
     cacheKey: string,
+    extensionOverride?: string,
   ): string {
-    const extension = EXTENSIONS[type];
+    const extension = (extensionOverride ?? EXTENSIONS[type]).replace(/^\./, "");
+
+    if (!SAFE_EXTENSION_PATTERN.test(extension)) {
+      throw new MediaCachePathError(
+        "La extensión solicitada para la caché no está permitida.",
+      );
+    }
+
     const projectSegment = hashSegment(projectId);
     const mediaSegment = hashSegment(mediaId);
-    const fileName = `${type}-${cacheKey.slice(0, 40)}.${extension}`;
+    const fileName = `${type}-${cacheKey.slice(0, 40)}.${extension.toLowerCase()}`;
     const path = resolve(this.rootPath, projectSegment, mediaSegment, fileName);
 
     return this.assertManagedPath(path);
@@ -100,6 +112,25 @@ class MediaCachePaths {
     const temporaryPath = `${base}.partial-${hashSegment(jobId)}${extension}`;
 
     return this.assertManagedPath(temporaryPath);
+  }
+
+  resolveAuxiliaryPath(
+    outputPath: string,
+    jobId: EntityId<"job">,
+    extension = "txt",
+  ): string {
+    const managedOutput = this.assertManagedPath(outputPath);
+    const normalizedExtension = extension.replace(/^\./, "").toLowerCase();
+
+    if (!SAFE_EXTENSION_PATTERN.test(normalizedExtension)) {
+      throw new MediaCachePathError(
+        "La extensión del archivo auxiliar no está permitida.",
+      );
+    }
+
+    return this.assertManagedPath(
+      `${managedOutput}.aux-${hashSegment(jobId)}.${normalizedExtension}`,
+    );
   }
 
   async prepareOutput(path: string): Promise<void> {
@@ -216,6 +247,7 @@ export {
   EXTENSIONS,
   MediaCachePathError,
   MediaCachePaths,
+  SAFE_EXTENSION_PATTERN,
   hashSegment,
   isTemporaryCacheFile,
   type CacheFileEntry,
