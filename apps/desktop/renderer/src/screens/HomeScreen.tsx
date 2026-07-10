@@ -5,7 +5,7 @@ Ruta o ubicación: /apps/desktop/renderer/src/screens/HomeScreen.tsx
 Función o funciones:
 - Mostrar el panel de inicio de la aplicación.
 - Presentar accesos directos hacia los módulos principales.
-- Informar el estado del dominio, proyectos e importación multimedia.
+- Informar el estado del dominio, medios y procesamiento.
 ========================================================= */
 
 import { DOMAIN_SCHEMA_VERSION } from "../../../shared/domain";
@@ -35,6 +35,13 @@ const moduleCards = [
     status: "Importación activa",
   },
   {
+    route: "jobs" as const,
+    icon: "jobs" as const,
+    title: "Trabajos",
+    description: "Supervisa progreso, pausas, cancelaciones y reintentos.",
+    status: "Worker Threads activos",
+  },
+  {
     route: "library" as const,
     icon: "library" as const,
     title: "Biblioteca",
@@ -59,29 +66,28 @@ function HomeScreen({
     <div className="screen-stack">
       <section className="dashboard-hero">
         <div className="dashboard-hero__content">
-          <span className="section-label">BLOQUE 7 · IMPORTACIÓN DE MEDIOS</span>
-          <h2>El editor ya registra archivos multimedia reales</h2>
+          <span className="section-label">BLOQUE 8 · SEGUNDO PLANO</span>
+          <h2>La aplicación ya procesa trabajos sin bloquear el editor</h2>
           <p>
-            Ahora puedes seleccionar varios videos, audios e imágenes. La
-            aplicación verifica extensión y firma binaria, calcula un hash
-            SHA-256, evita duplicados y guarda la referencia al original sin
-            modificarlo.
+            La cola guarda estados en SQLite, respeta prioridad y dependencias,
+            limita la concurrencia y ejecuta tareas compatibles dentro de Worker
+            Threads con progreso, pausa, cancelación y recuperación.
           </p>
           <div className="dashboard-hero__actions">
             <button
               className="primary-button"
               type="button"
-              onClick={() => onNavigate("editor")}
+              onClick={() => onNavigate("jobs")}
             >
-              Importar medios
+              Abrir Centro de trabajos
               <AppIcon name="arrow" size={18} />
             </button>
             <button
               className="secondary-button"
               type="button"
-              onClick={() => onNavigate("projects")}
+              onClick={() => onNavigate("editor")}
             >
-              Elegir proyecto
+              Abrir editor
             </button>
           </div>
         </div>
@@ -119,11 +125,11 @@ function HomeScreen({
         </article>
         <article className="metric-card">
           <span className="metric-card__icon">
-            <AppIcon name="video" />
+            <AppIcon name="jobs" />
           </span>
           <div>
-            <small>Medios</small>
-            <strong>Firmas + SHA-256</strong>
+            <small>Procesamiento</small>
+            <strong>Cola + Workers</strong>
           </div>
         </article>
         <article className="metric-card">

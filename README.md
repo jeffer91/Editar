@@ -21,8 +21,9 @@ Aplicación de escritorio modular para edición de video, eliminación de silenc
 - **Bloque 5:** SQLite, migraciones, repositorios y respaldos.
 - **Bloque 6:** gestión funcional de proyectos.
 - **Bloque 7:** importación y registro de medios.
+- **Bloque 8:** cola persistente y procesamiento en segundo plano.
 
-La aplicación ya dispone de proceso principal, preload aislado, comunicación validada, shell responsivo, núcleo de dominio, almacenamiento SQLite, gestión de proyectos e importación real de videos, audios e imágenes.
+La aplicación ya dispone de proceso principal, preload aislado, comunicación validada, shell responsivo, núcleo de dominio, almacenamiento SQLite, gestión de proyectos, importación de medios y una cola de trabajos ejecutada fuera del renderer.
 
 ## Requisitos
 
@@ -56,19 +57,17 @@ La verificación realiza:
 2. Comprobación de tipos del renderer.
 3. Comprobación de tipos de Electron.
 4. Compilación de React.
-5. Compilación del proceso principal, preload y contratos.
-6. Pruebas automáticas de validación IPC.
-7. Pruebas automáticas de rutas y navegación.
-8. Pruebas de proyectos, medios, timeline, efectos y trabajos.
-9. Pruebas de integridad del documento completo del proyecto.
-10. Pruebas de migraciones SQLite.
-11. Pruebas de repositorios, snapshots y cascadas.
-12. Pruebas de respaldos y retención.
-13. Pruebas de creación, apertura y listado de proyectos.
-14. Pruebas de renombrado, archivo, restauración y eliminación.
-15. Pruebas de duplicación y remapeo de identificadores.
-16. Pruebas de firmas binarias de MP4, PNG y WAV.
-17. Pruebas de hash, duplicados, cancelación e importación persistente.
+5. Compilación del proceso principal, preload, trabajadores y contratos.
+6. Pruebas de seguridad e IPC.
+7. Pruebas de navegación.
+8. Pruebas del dominio completo.
+9. Pruebas de migraciones, integridad y respaldos SQLite.
+10. Pruebas de gestión de proyectos.
+11. Pruebas de importación y firmas multimedia.
+12. Pruebas reales de Worker Threads.
+13. Pruebas de progreso, pausa, reanudación y cancelación.
+14. Pruebas de prioridad y límite de concurrencia.
+15. Pruebas de recuperación de trabajos interrumpidos.
 
 Cuando falla el tipado, GitHub Actions conserva el diagnóstico completo como artefacto durante siete días.
 
@@ -83,8 +82,54 @@ npm start
 - Inicio.
 - Proyectos funcionales.
 - Editor conectado al proyecto activo e importación de medios.
+- Centro de trabajos.
 - Biblioteca.
 - Ajustes y diagnóstico.
+
+## Cola de trabajos
+
+La aplicación dispone de una cola persistente en SQLite para operaciones largas.
+
+Cada trabajo registra:
+
+- proyecto y tipo de operación;
+- estado y porcentaje de progreso;
+- prioridad;
+- dependencias;
+- intento actual y máximo permitido;
+- datos de entrada y resultado;
+- error controlado;
+- fechas de creación, actualización, inicio y finalización.
+
+Estados disponibles:
+
+```text
+pending     Esperando ejecución
+preparing   Preparando recursos
+running     Ejecutándose
+paused      Detenido para reiniciarse después
+cancelled   Cancelado por el usuario
+completed   Finalizado correctamente
+failed      Finalizado con error
+```
+
+La cola:
+
+- ordena por prioridad y antigüedad;
+- respeta dependencias entre trabajos;
+- limita la cantidad de ejecuciones simultáneas;
+- actualiza progreso sin generar snapshots del proyecto;
+- permite pausar, reanudar, cancelar y reintentar;
+- recupera al iniciar trabajos que quedaron en `preparing` o `running`;
+- detiene los trabajadores antes de cerrar SQLite.
+
+La pausa termina la ejecución activa y conserva el trabajo como `paused`. Al reanudar, la operación empieza nuevamente desde cero y aumenta el número de intento.
+
+## Procesamiento en segundo plano
+
+El trabajo `diagnostic-worker` se ejecuta realmente dentro de un Worker Thread de Node.js. Reporta diez avances hasta llegar al 100 % y demuestra que una tarea de procesamiento puede ejecutarse sin bloquear React ni la ventana de Electron.
+
+Los tipos `probe-media`, `generate-proxy`, `generate-waveform`, `extract-audio`, `detect-silence`, `transcribe-audio`, `render-preview` y `export-video` ya forman parte del dominio, pero todavía no tienen ejecutores. Permanecerán pendientes hasta que los motores correspondientes sean incorporados.
 
 ## Importación de medios
 
@@ -96,33 +141,11 @@ Formatos registrados inicialmente:
 - audio: MP3, WAV, M4A, AAC, FLAC, OGG y OPUS;
 - imagen: PNG, JPG, JPEG, WEBP, GIF y BMP.
 
-Antes de guardar cada recurso, la aplicación:
-
-1. resuelve la ruta real del archivo;
-2. confirma que sea un archivo regular y no esté vacío;
-3. valida la extensión;
-4. verifica su firma binaria;
-5. calcula un SHA-256 por streaming;
-6. busca duplicados dentro del proyecto;
-7. registra ruta, tamaño, tipo MIME y fecha de modificación;
-8. crea un snapshot cuando existen nuevas importaciones.
-
-Los archivos originales no se copian, no se renombran y no se modifican. La duración, resolución, FPS y códecs quedan pendientes hasta la integración de FFprobe.
+Antes de guardar cada recurso, la aplicación valida ruta, tamaño, extensión y firma binaria, calcula un SHA-256 por streaming y busca duplicados. Los originales no se copian, renombran ni modifican.
 
 ## Gestión de proyectos
 
-La pantalla Proyectos permite:
-
-- crear proyectos horizontales, verticales, cuadrados y de retrato;
-- buscar por nombre;
-- filtrar activos, archivados o todos;
-- abrir el documento completo en el editor;
-- renombrar con snapshot automático;
-- duplicar contenido con identificadores nuevos;
-- archivar y restaurar;
-- eliminar con confirmación.
-
-La duplicación no copia trabajos transitorios. Conserva la estructura creativa, referencias multimedia, clips, textos, efectos y transiciones.
+La pantalla Proyectos permite crear, buscar, abrir, renombrar, duplicar, archivar, restaurar y eliminar proyectos. La duplicación genera identificadores nuevos y excluye trabajos transitorios.
 
 ## Núcleo del dominio
 
@@ -134,8 +157,8 @@ El núcleo utiliza:
 - modelos inmutables;
 - parámetros JSON serializables;
 - validación de referencias entre entidades;
-- estados controlados para trabajos de procesamiento;
-- estados de inspección multimedia pendientes, completos o fallidos.
+- estados controlados para medios y trabajos;
+- dependencias de trabajos sin ciclos.
 
 ## Persistencia local
 
@@ -145,13 +168,15 @@ SQLite utiliza:
 - claves foráneas y borrado en cascada;
 - modo WAL;
 - migraciones versionadas con checksum;
+- esquema actual versión 3;
 - transacciones completas por proyecto;
+- repositorio especializado para progreso de trabajos;
 - snapshots de recuperación;
 - comprobaciones de integridad;
 - respaldos externos con checksum SHA-256;
 - retención automática de respaldos.
 
-La interfaz nunca recibe acceso directo a SQLite ni acepta rutas arbitrarias para importar. Todas las operaciones se ejecutan mediante IPC validado.
+La interfaz nunca recibe acceso directo a SQLite, Node.js, rutas arbitrarias ni Worker Threads. Todas las operaciones se ejecutan mediante contratos IPC validados.
 
 ## Estructura actual
 
@@ -162,6 +187,7 @@ Editar/
 │       ├── main/
 │       │   ├── database/
 │       │   ├── ipc/
+│       │   ├── jobs/
 │       │   ├── media/
 │       │   ├── projects/
 │       │   └── security/
@@ -170,8 +196,6 @@ Editar/
 │       │   └── src/
 │       │       ├── app/
 │       │       ├── components/
-│       │       │   ├── media/
-│       │       │   └── projects/
 │       │       └── screens/
 │       └── shared/
 │           ├── domain/
@@ -191,17 +215,13 @@ Editar/
 - Los videos originales nunca se modificarán.
 - La interfaz no tendrá acceso directo a Node.js ni SQLite.
 - Todo canal IPC debe declararse, tiparse y validarse.
-- Las rutas de importación solo provienen del selector nativo del proceso principal.
-- Las pantallas deben depender de componentes compartidos.
-- Los modelos del dominio no dependen de Electron ni de SQLite.
-- Todos los tiempos audiovisuales se guardan como microsegundos enteros.
-- Todo guardado integral debe ejecutarse dentro de una transacción.
+- Los procesos pesados deben ejecutarse fuera del renderer.
+- Los cambios frecuentes de progreso no deben crear snapshots.
+- La aplicación debe cerrar trabajadores antes de cerrar la base.
 - Las migraciones aplicadas no pueden modificarse silenciosamente.
-- Los trabajos transitorios no se copian al duplicar proyectos.
-- Los procesos pesados se incorporarán fuera del renderer.
 - Los módulos futuros dependerán de contratos estables.
 - Cada bloque deberá compilar y verificarse antes de continuar.
 
 ## Siguiente bloque
 
-**Bloque 8 — Cola de trabajos y procesamiento en segundo plano.**
+**Bloque 9 — Integración de FFmpeg y FFprobe.**

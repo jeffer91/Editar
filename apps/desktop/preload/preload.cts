@@ -5,7 +5,7 @@ Ruta o ubicación: /apps/desktop/preload/preload.cts
 Función o funciones:
 - Exponer una API limitada y tipada al renderer.
 - Enviar solicitudes únicamente por canales IPC autorizados.
-- Proporcionar operaciones seguras del sistema, SQLite, proyectos y medios.
+- Proporcionar operaciones seguras del sistema, SQLite, proyectos, medios y trabajos.
 ========================================================= */
 
 const { contextBridge, ipcRenderer } = require("electron") as typeof import("electron");
@@ -18,6 +18,10 @@ type IpcResult<T> = import("../shared/ipc-contracts.js").IpcResult<T>;
 type PingInfo = import("../shared/ipc-contracts.js").PingInfo;
 type RequestEnvelope = import("../shared/ipc-contracts.js").RequestEnvelope;
 type RuntimeInfo = import("../shared/ipc-contracts.js").RuntimeInfo;
+type JobActionResult = import("../shared/job-queue-contracts.js").JobActionResult;
+type JobIdInput = import("../shared/job-queue-contracts.js").JobIdInput;
+type JobQueueSnapshot = import("../shared/job-queue-contracts.js").JobQueueSnapshot;
+type ProjectJobInput = import("../shared/job-queue-contracts.js").ProjectJobInput;
 type ImportMediaInput = import("../shared/media-import-contracts.js").ImportMediaInput;
 type MediaImportResult = import("../shared/media-import-contracts.js").MediaImportResult;
 type CreateProjectInput = import("../shared/project-management-contracts.js").CreateProjectInput;
@@ -42,6 +46,12 @@ const IPC_CHANNELS = Object.freeze({
   projectsSetStatus: "projects:set-status",
   projectsDelete: "projects:delete",
   mediaChooseAndImport: "media:choose-and-import",
+  jobsGetSnapshot: "jobs:get-snapshot",
+  jobsEnqueueDiagnostic: "jobs:enqueue-diagnostic",
+  jobsPause: "jobs:pause",
+  jobsResume: "jobs:resume",
+  jobsCancel: "jobs:cancel",
+  jobsRetry: "jobs:retry",
 } as const);
 
 function createRequestEnvelope(): RequestEnvelope {
@@ -111,6 +121,23 @@ const bridge: EditarBridge = Object.freeze({
         IPC_CHANNELS.mediaChooseAndImport,
         input,
       ),
+  }),
+  jobs: Object.freeze({
+    getSnapshot: () =>
+      invoke<JobQueueSnapshot>(IPC_CHANNELS.jobsGetSnapshot),
+    enqueueDiagnostic: (input: ProjectJobInput) =>
+      invoke<JobActionResult, ProjectJobInput>(
+        IPC_CHANNELS.jobsEnqueueDiagnostic,
+        input,
+      ),
+    pause: (input: JobIdInput) =>
+      invoke<JobActionResult, JobIdInput>(IPC_CHANNELS.jobsPause, input),
+    resume: (input: JobIdInput) =>
+      invoke<JobActionResult, JobIdInput>(IPC_CHANNELS.jobsResume, input),
+    cancel: (input: JobIdInput) =>
+      invoke<JobActionResult, JobIdInput>(IPC_CHANNELS.jobsCancel, input),
+    retry: (input: JobIdInput) =>
+      invoke<JobActionResult, JobIdInput>(IPC_CHANNELS.jobsRetry, input),
   }),
 });
 

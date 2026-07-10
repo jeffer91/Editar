@@ -128,7 +128,7 @@ test("aplica migraciones y configura SQLite correctamente", async () => {
 
     assert.equal(status.isOpen, true);
     assert.equal(status.schemaVersion, status.latestSchemaVersion);
-    assert.equal(status.schemaVersion, 2);
+    assert.equal(status.schemaVersion, 3);
     assert.equal(status.journalMode, "wal");
     assert.equal(status.integrity, "ok");
     assert.equal(status.projectCount, 0);
@@ -218,7 +218,7 @@ test("crea respaldos verificables y aplica retención", async () => {
     await assert.rejects(access(first.path));
 
     assert.equal(first.checksum.length, 64);
-    assert.equal(third.schemaVersion, 2);
+    assert.equal(third.schemaVersion, 3);
 
     const status = await context.service.getStatus();
     assert.equal(status.backupCount, 2);
@@ -249,7 +249,7 @@ test("reabre la misma base sin repetir ni alterar migraciones", async () => {
 
       assert.ok(loaded);
       assert.equal(loaded.project.name, "Proyecto persistente");
-      assert.equal(status.schemaVersion, 2);
+      assert.equal(status.schemaVersion, 3);
       assert.equal(status.integrity, "ok");
     } finally {
       reopened.close();

@@ -4,7 +4,7 @@ Ruta o ubicación: /apps/desktop/main/database/database-service.ts
 
 Función o funciones:
 - Administrar el ciclo de vida completo de SQLite.
-- Exponer repositorios, estado, integridad y respaldos.
+- Exponer proyectos, cola de trabajos, integridad y respaldos.
 - Resolver rutas locales sin acoplarlas a la interfaz.
 ========================================================= */
 
@@ -14,10 +14,12 @@ import type {
   DatabaseBackupInfo,
   DatabaseStatus,
 } from "../../shared/database-contracts.js";
+import type { JobQueueRepository } from "../../shared/persistence/job-queue-repository.js";
 import type { ProjectRepository } from "../../shared/persistence/project-repository.js";
 import { LATEST_DATABASE_VERSION } from "./migrations.js";
 import { DatabaseBackupService } from "./database-backup-service.js";
 import { SqliteDatabase } from "./sqlite-database.js";
+import { SqliteJobQueueRepository } from "./sqlite-job-queue-repository.js";
 import { SqliteProjectRepository } from "./sqlite-project-repository.js";
 
 interface DatabasePaths {
@@ -53,7 +55,8 @@ function numberFromSqlite(value: number | bigint): number {
 
 class DatabaseService {
   private databaseInstance: SqliteDatabase | null = null;
-  private repositoryInstance: SqliteProjectRepository | null = null;
+  private projectRepositoryInstance: SqliteProjectRepository | null = null;
+  private jobRepositoryInstance: SqliteJobQueueRepository | null = null;
   private backupServiceInstance: DatabaseBackupService | null = null;
 
   constructor(private readonly options: DatabaseServiceOptions) {}
@@ -67,11 +70,19 @@ class DatabaseService {
   }
 
   get projects(): ProjectRepository {
-    if (!this.repositoryInstance) {
-      throw new Error("El repositorio todavía no fue inicializado.");
+    if (!this.projectRepositoryInstance) {
+      throw new Error("El repositorio de proyectos todavía no fue inicializado.");
     }
 
-    return this.repositoryInstance;
+    return this.projectRepositoryInstance;
+  }
+
+  get jobs(): JobQueueRepository {
+    if (!this.jobRepositoryInstance) {
+      throw new Error("El repositorio de trabajos todavía no fue inicializado.");
+    }
+
+    return this.jobRepositoryInstance;
   }
 
   async initialize(): Promise<void> {
@@ -88,7 +99,8 @@ class DatabaseService {
       path: this.options.paths.databasePath,
       timeoutMs: 5_000,
     });
-    const repository = new SqliteProjectRepository(database);
+    const projectRepository = new SqliteProjectRepository(database);
+    const jobRepository = new SqliteJobQueueRepository(database);
     const backupService = new DatabaseBackupService(database, {
       backupsDirectory: this.options.paths.backupsDirectory,
       maxBackups: this.options.maxBackups ?? 10,
@@ -96,7 +108,8 @@ class DatabaseService {
     });
 
     this.databaseInstance = database;
-    this.repositoryInstance = repository;
+    this.projectRepositoryInstance = projectRepository;
+    this.jobRepositoryInstance = jobRepository;
     this.backupServiceInstance = backupService;
 
     if (this.options.automaticBackups !== false && this.getProjectCount() > 0) {
@@ -145,7 +158,8 @@ class DatabaseService {
   close(): void {
     this.databaseInstance?.close();
     this.databaseInstance = null;
-    this.repositoryInstance = null;
+    this.projectRepositoryInstance = null;
+    this.jobRepositoryInstance = null;
     this.backupServiceInstance = null;
   }
 

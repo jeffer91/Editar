@@ -4,9 +4,9 @@ Ruta o ubicación: /apps/desktop/main/main.ts
 
 Función o funciones:
 - Iniciar el proceso principal de Electron.
-- Inicializar y cerrar SQLite de forma controlada.
-- Registrar IPC de sistema, base de datos, proyectos y medios.
-- Gestionar correctamente el ciclo de vida de la aplicación.
+- Inicializar SQLite y la cola persistente.
+- Registrar IPC de sistema, proyectos, medios y trabajos.
+- Cerrar trabajadores y base de datos de forma ordenada.
 ========================================================= */
 
 import { app, BrowserWindow } from "electron";
@@ -17,9 +17,12 @@ import {
   createDatabasePaths,
 } from "./database/database-service.js";
 import { registerDatabaseIpc } from "./ipc/register-database-ipc.js";
+import { registerJobQueueIpc } from "./ipc/register-job-queue-ipc.js";
 import { registerMediaIpc } from "./ipc/register-media-ipc.js";
 import { registerProjectIpc } from "./ipc/register-project-ipc.js";
 import { registerSystemIpc } from "./ipc/register-system-ipc.js";
+import { JobQueueService } from "./jobs/job-queue-service.js";
+import { WorkerThreadJobExecutor } from "./jobs/worker-thread-job-executor.js";
 import { MediaImportService } from "./media/media-import-service.js";
 import { ProjectManagementService } from "./projects/project-management-service.js";
 import { applyWindowSecurity } from "./security/window-security.js";
@@ -31,6 +34,8 @@ const developmentUrl = process.env.VITE_DEV_SERVER_URL;
 
 let mainWindow: BrowserWindow | null = null;
 let databaseService: DatabaseService | null = null;
+let jobQueueService: JobQueueService | null = null;
+let shutdownStarted = false;
 
 function getPreloadPath(): string {
   return join(currentDirectory, "../preload/preload.cjs");
@@ -92,6 +97,13 @@ async function createMainWindow(
   await mainWindow.loadFile(getRendererPath());
 }
 
+async function shutdownApplication(): Promise<void> {
+  await jobQueueService?.stop();
+  jobQueueService = null;
+  databaseService?.close();
+  databaseService = null;
+}
+
 app
   .whenReady()
   .then(async () => {
@@ -107,6 +119,15 @@ app
 
     const projectService = new ProjectManagementService(service.projects);
     const mediaImportService = new MediaImportService(service.projects);
+    const jobQueue = new JobQueueService({
+      repository: service.jobs,
+      projects: service.projects,
+      executor: new WorkerThreadJobExecutor(),
+      concurrency: 2,
+      pollIntervalMs: 250,
+    });
+    jobQueueService = jobQueue;
+    await jobQueue.start();
 
     registerSystemIpc(trustedSources);
     registerDatabaseIpc({
@@ -121,6 +142,10 @@ app
       trustedSources,
       mediaImportService,
     });
+    registerJobQueueIpc({
+      trustedSources,
+      jobQueue,
+    });
     await createMainWindow(trustedSources);
 
     app.on("activate", () => {
@@ -130,15 +155,20 @@ app
     });
   })
   .catch((error: unknown) => {
-    databaseService?.close();
-    databaseService = null;
-    console.error("No fue posible iniciar la aplicación:", error);
-    app.quit();
+    void shutdownApplication().finally(() => {
+      console.error("No fue posible iniciar la aplicación:", error);
+      app.quit();
+    });
   });
 
-app.once("will-quit", () => {
-  databaseService?.close();
-  databaseService = null;
+app.on("before-quit", (event) => {
+  if (shutdownStarted) {
+    return;
+  }
+
+  event.preventDefault();
+  shutdownStarted = true;
+  void shutdownApplication().finally(() => app.quit());
 });
 
 app.on("window-all-closed", () => {

@@ -3,9 +3,9 @@ Nombre completo: jobs.ts
 Ruta o ubicación: /apps/desktop/shared/domain/jobs.ts
 
 Función o funciones:
-- Definir trabajos pesados y sus estados.
-- Modelar progreso, prioridad, dependencias y reintentos.
-- Preparar la cola central que se implementará en el Bloque 8.
+- Definir trabajos pesados, prioridades y dependencias.
+- Controlar progreso, pausa, cancelación, recuperación y reintentos.
+- Proporcionar estados persistentes para la cola central.
 ========================================================= */
 
 import { assertDomain } from "./domain-error.js";
@@ -19,6 +19,7 @@ import {
 } from "./primitives.js";
 
 type JobKind =
+  | "diagnostic-worker"
   | "probe-media"
   | "generate-proxy"
   | "generate-waveform"
@@ -59,6 +60,7 @@ interface JobRecord {
   readonly result?: Readonly<Record<string, JsonValue>>;
   readonly error?: JobErrorInfo;
   readonly createdAt: IsoDateTime;
+  readonly updatedAt: IsoDateTime;
   readonly startedAt?: IsoDateTime;
   readonly finishedAt?: IsoDateTime;
 }
@@ -89,12 +91,17 @@ const TERMINAL_JOB_STATUSES: readonly JobStatus[] = Object.freeze([
   "failed",
 ]);
 
+const ACTIVE_JOB_STATUSES: readonly JobStatus[] = Object.freeze([
+  "preparing",
+  "running",
+]);
+
 const ALLOWED_JOB_TRANSITIONS: Readonly<Record<JobStatus, readonly JobStatus[]>> =
   Object.freeze({
-    pending: ["preparing", "cancelled"],
-    preparing: ["running", "cancelled", "failed"],
-    running: ["paused", "cancelled", "completed", "failed"],
-    paused: ["running", "cancelled", "failed"],
+    pending: ["preparing", "paused", "cancelled", "failed"],
+    preparing: ["pending", "running", "cancelled", "failed"],
+    running: ["running", "pending", "paused", "cancelled", "completed", "failed"],
+    paused: ["pending", "cancelled"],
     cancelled: [],
     completed: [],
     failed: ["pending"],
@@ -118,10 +125,7 @@ function assertUniqueDependencies(
   );
 }
 
-function validateAttempt(
-  attempt: number,
-  maxAttempts: number,
-): void {
+function validateAttempt(attempt: number, maxAttempts: number): void {
   assertDomain(
     Number.isSafeInteger(maxAttempts) && maxAttempts >= 1 && maxAttempts <= 100,
     "OUT_OF_RANGE",
@@ -140,6 +144,7 @@ function createJob(input: CreateJobInput): JobRecord {
   const id = input.id ?? createEntityId("job");
   const dependencyIds = Object.freeze([...(input.dependencyIds ?? [])]);
   const maxAttempts = input.maxAttempts ?? 3;
+  const createdAt = toIsoDateTime(input.createdAt ?? new Date(), "createdAt");
 
   assertUniqueDependencies(id, dependencyIds);
   validateAttempt(0, maxAttempts);
@@ -155,7 +160,8 @@ function createJob(input: CreateJobInput): JobRecord {
     attempt: 0,
     maxAttempts,
     payload: Object.freeze({ ...(input.payload ?? {}) }),
-    createdAt: toIsoDateTime(input.createdAt ?? new Date(), "createdAt"),
+    createdAt,
+    updatedAt: createdAt,
   });
 }
 
@@ -178,7 +184,7 @@ function updateJobState(
   );
 
   const progress = clampNumber(
-    input.progress ?? job.progress,
+    input.progress ?? (input.status === "pending" ? 0 : job.progress),
     0,
     100,
     "progress",
@@ -219,10 +225,47 @@ function updateJobState(
     attempt,
     result: input.result
       ? Object.freeze({ ...input.result })
-      : job.result,
-    error: input.error,
+      : input.status === "pending"
+        ? undefined
+        : job.result,
+    error:
+      input.error ??
+      (input.status === "pending" || input.status === "completed"
+        ? undefined
+        : job.error),
+    updatedAt: now,
     startedAt,
     finishedAt,
+  });
+}
+
+function recoverInterruptedJob(
+  job: JobRecord,
+  now: Date | string = new Date(),
+): JobRecord {
+  assertDomain(
+    ACTIVE_JOB_STATUSES.includes(job.status),
+    "INVALID_RELATION",
+    "status",
+    "Solo se pueden recuperar trabajos interrumpidos.",
+  );
+
+  if (job.attempt >= job.maxAttempts) {
+    return updateJobState(job, {
+      status: "failed",
+      error: {
+        code: "MAX_ATTEMPTS_REACHED",
+        message: "El trabajo alcanzó el máximo de intentos después de una interrupción.",
+        retryable: false,
+      },
+      now,
+    });
+  }
+
+  return updateJobState(job, {
+    status: "pending",
+    progress: 0,
+    now,
   });
 }
 
@@ -238,11 +281,13 @@ function areJobDependenciesCompleted(
 }
 
 export {
+  ACTIVE_JOB_STATUSES,
   ALLOWED_JOB_TRANSITIONS,
   TERMINAL_JOB_STATUSES,
   areJobDependenciesCompleted,
   canTransitionJob,
   createJob,
+  recoverInterruptedJob,
   updateJobState,
   type CreateJobInput,
   type JobErrorInfo,

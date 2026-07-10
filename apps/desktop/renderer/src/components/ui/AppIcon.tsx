@@ -55,6 +55,13 @@ function AppIcon({
         <path d="m11 9 4 3-4 3Z" />
       </>
     ),
+    jobs: (
+      <>
+        <rect x="4" y="4" width="16" height="16" rx="3" />
+        <path d="M8 8h8M8 12h5M8 16h3" />
+        <path d="m15 15 1.5 1.5L20 13" />
+      </>
+    ),
     library: (
       <>
         <rect x="3" y="4" width="5" height="16" rx="1" />

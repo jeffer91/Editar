@@ -9,6 +9,7 @@ Función o funciones:
 ========================================================= */
 
 import type { DatabaseBridge } from "./database-contracts.js";
+import type { JobQueueBridge } from "./job-queue-contracts.js";
 import type { MediaImportBridge } from "./media-import-contracts.js";
 import type { ProjectBridge } from "./project-management-contracts.js";
 
@@ -26,6 +27,12 @@ const IPC_CHANNELS = Object.freeze({
   projectsSetStatus: "projects:set-status",
   projectsDelete: "projects:delete",
   mediaChooseAndImport: "media:choose-and-import",
+  jobsGetSnapshot: "jobs:get-snapshot",
+  jobsEnqueueDiagnostic: "jobs:enqueue-diagnostic",
+  jobsPause: "jobs:pause",
+  jobsResume: "jobs:resume",
+  jobsCancel: "jobs:cancel",
+  jobsRetry: "jobs:retry",
 } as const);
 
 type IpcChannel = (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS];
@@ -88,6 +95,7 @@ interface EditarBridge {
   readonly database: DatabaseBridge;
   readonly projects: ProjectBridge;
   readonly media: MediaImportBridge;
+  readonly jobs: JobQueueBridge;
 }
 
 export {
