@@ -8,9 +8,14 @@ Función o funciones:
 - Estandarizar respuestas exitosas y errores controlados.
 ========================================================= */
 
+import type { DatabaseBridge } from "./database-contracts.js";
+
 const IPC_CHANNELS = Object.freeze({
   systemGetRuntimeInfo: "system:get-runtime-info",
   systemPing: "system:ping",
+  databaseGetStatus: "database:get-status",
+  databaseCheckIntegrity: "database:check-integrity",
+  databaseCreateBackup: "database:create-backup",
 } as const);
 
 type IpcChannel = (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS];
@@ -41,6 +46,7 @@ interface PingInfo {
 type IpcErrorCode =
   | "INVALID_REQUEST"
   | "UNTRUSTED_SENDER"
+  | "DATABASE_ERROR"
   | "INTERNAL_ERROR";
 
 interface IpcSuccess<T> {
@@ -67,6 +73,7 @@ interface SystemBridge {
 
 interface EditarBridge {
   readonly system: SystemBridge;
+  readonly database: DatabaseBridge;
 }
 
 export {
