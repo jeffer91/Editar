@@ -3,9 +3,9 @@ Nombre completo: worker-thread-job-executor.ts
 Ruta o ubicación: /apps/desktop/main/jobs/worker-thread-job-executor.ts
 
 Función o funciones:
-- Ejecutar trabajos compatibles dentro de Worker Threads.
+- Ejecutar diagnósticos y FFprobe dentro de Worker Threads.
 - Traducir progreso, resultados, errores y cancelaciones.
-- Cerrar trabajadores activos al terminar la aplicación.
+- Solicitar una detención cooperativa antes de terminar el Worker.
 ========================================================= */
 
 import { Worker } from "node:worker_threads";
@@ -27,7 +27,8 @@ type WorkerMessage =
       readonly type: "completed";
       readonly result?: Readonly<Record<string, JsonValue>>;
     }
-  | { readonly type: "failed"; readonly error: JobErrorInfo };
+  | { readonly type: "failed"; readonly error: JobErrorInfo }
+  | { readonly type: "aborted" };
 
 class JobWorkerError extends Error {
   constructor(readonly info: JobErrorInfo) {
@@ -52,7 +53,7 @@ class WorkerThreadJobExecutor implements JobExecutor {
   }
 
   supports(kind: JobKind): boolean {
-    return kind === "diagnostic-worker";
+    return kind === "diagnostic-worker" || kind === "probe-media";
   }
 
   execute(
@@ -79,17 +80,22 @@ class WorkerThreadJobExecutor implements JobExecutor {
         workerData: { job },
       });
       let settled = false;
+      let abortRequested = false;
+      let abortTimer: NodeJS.Timeout | null = null;
 
       this.activeWorkers.add(worker);
 
       const cleanup = (): void => {
         signal.removeEventListener("abort", abort);
         this.activeWorkers.delete(worker);
+
+        if (abortTimer) {
+          clearTimeout(abortTimer);
+          abortTimer = null;
+        }
       };
 
-      const finish = (
-        operation: () => void,
-      ): void => {
+      const finish = (operation: () => void): void => {
         if (settled) {
           return;
         }
@@ -99,18 +105,29 @@ class WorkerThreadJobExecutor implements JobExecutor {
         operation();
       };
 
+      const terminateAfterFinish = (): void => {
+        void worker.terminate().catch(() => undefined);
+      };
+
       const abort = (): void => {
-        void worker.terminate().finally(() => {
-          finish(() => reject(new JobExecutionAbortedError()));
-        });
+        if (abortRequested || settled) {
+          return;
+        }
+
+        abortRequested = true;
+        worker.postMessage({ type: "abort" });
+        abortTimer = setTimeout(() => {
+          void worker.terminate().finally(() => {
+            finish(() => reject(new JobExecutionAbortedError()));
+          });
+        }, 1_500);
       };
 
       if (signal.aborted) {
         abort();
-        return;
+      } else {
+        signal.addEventListener("abort", abort, { once: true });
       }
-
-      signal.addEventListener("abort", abort, { once: true });
 
       worker.on("message", (message: WorkerMessage) => {
         if (message.type === "progress") {
@@ -118,14 +135,20 @@ class WorkerThreadJobExecutor implements JobExecutor {
           return;
         }
 
+        if (message.type === "aborted") {
+          finish(() => reject(new JobExecutionAbortedError()));
+          terminateAfterFinish();
+          return;
+        }
+
         if (message.type === "completed") {
           finish(() => resolve({ result: message.result }));
-          void worker.terminate();
+          terminateAfterFinish();
           return;
         }
 
         finish(() => reject(new JobWorkerError(message.error)));
-        void worker.terminate();
+        terminateAfterFinish();
       });
 
       worker.once("error", (error) => {
@@ -141,17 +164,24 @@ class WorkerThreadJobExecutor implements JobExecutor {
       });
 
       worker.once("exit", (code) => {
-        if (!settled && code !== 0) {
-          finish(() =>
-            reject(
-              new JobWorkerError({
-                code: "WORKER_UNEXPECTED_EXIT",
-                message: `El trabajador terminó inesperadamente con código ${code}.`,
-                retryable: true,
-              }),
-            ),
-          );
+        if (settled) {
+          return;
         }
+
+        if (abortRequested) {
+          finish(() => reject(new JobExecutionAbortedError()));
+          return;
+        }
+
+        finish(() =>
+          reject(
+            new JobWorkerError({
+              code: "WORKER_UNEXPECTED_EXIT",
+              message: `El trabajador terminó inesperadamente con código ${code}.`,
+              retryable: true,
+            }),
+          ),
+        );
       });
     });
   }
