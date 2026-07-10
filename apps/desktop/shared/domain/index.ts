@@ -8,6 +8,7 @@ Función o funciones:
 - Facilitar el crecimiento y futura extracción del módulo.
 ========================================================= */
 
+export * from "./audio-analysis.js";
 export * from "./domain-error.js";
 export * from "./effects.js";
 export * from "./jobs.js";
