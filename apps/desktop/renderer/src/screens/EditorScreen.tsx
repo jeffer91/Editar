@@ -4,17 +4,19 @@ Ruta o ubicación: /apps/desktop/renderer/src/screens/EditorScreen.tsx
 
 Función o funciones:
 - Mostrar la estructura visual del editor.
-- Importar, analizar y refrescar medios del proyecto activo.
+- Importar, analizar, optimizar y refrescar medios del proyecto.
 - Guiar al usuario a Proyectos cuando no existe uno abierto.
 ========================================================= */
 
 import { useEffect } from "react";
 import type {
   EntityId,
+  JobKind,
   ProjectDocument,
   TrackKind,
 } from "../../../shared/domain";
 import { useMediaAnalysis } from "../app/use-media-analysis";
+import { useMediaCache } from "../app/use-media-cache";
 import { useMediaImport } from "../app/use-media-import";
 import { ProjectMediaPanel } from "../components/media/ProjectMediaPanel";
 import { AppIcon } from "../components/ui/AppIcon";
@@ -33,6 +35,12 @@ const trackLabels: Readonly<Record<TrackKind, string>> = Object.freeze({
   adjustment: "FX",
 });
 
+const DERIVATIVE_JOB_KINDS: readonly JobKind[] = Object.freeze([
+  "generate-proxy",
+  "generate-waveform",
+  "generate-thumbnails",
+]);
+
 function EditorScreen({
   project,
   onChooseProject,
@@ -40,26 +48,42 @@ function EditorScreen({
 }: EditorScreenProps): React.JSX.Element {
   const mediaImport = useMediaImport();
   const mediaAnalysis = useMediaAnalysis();
+  const mediaCache = useMediaCache(false);
   const pendingMediaCount =
     project?.media.filter((asset) => asset.inspection.status === "pending").length ?? 0;
 
   useEffect(() => {
-    if (!project || pendingMediaCount === 0) {
+    if (!project) {
       return undefined;
     }
 
     let cancelled = false;
 
-    const refreshProject = async (): Promise<void> => {
-      const result = await window.editar.projects.open({
+    const refreshWhenNeeded = async (): Promise<void> => {
+      const queueResult = await window.editar.jobs.getSnapshot();
+      const hasActiveDerivativeJobs =
+        queueResult.ok &&
+        queueResult.data.items.some(
+          (item) =>
+            item.job.projectId === project.project.id &&
+            DERIVATIVE_JOB_KINDS.includes(item.job.kind) &&
+            ["pending", "preparing", "running", "paused"].includes(item.job.status),
+        );
+
+      if (pendingMediaCount === 0 && !hasActiveDerivativeJobs) {
+        return;
+      }
+
+      const projectResult = await window.editar.projects.open({
         projectId: project.project.id,
       });
 
-      if (!cancelled && result.ok) {
-        onProjectChange(result.data);
+      if (!cancelled && projectResult.ok) {
+        onProjectChange(projectResult.data);
       }
     };
-    const timer = window.setInterval(() => void refreshProject(), 800);
+    const timer = window.setInterval(() => void refreshWhenNeeded(), 900);
+    void refreshWhenNeeded();
 
     return () => {
       cancelled = true;
@@ -96,6 +120,10 @@ function EditorScreen({
   const orderedTracks = [...project.tracks].sort(
     (left, right) => left.order - right.order,
   );
+  const derivativeCount = project.media.reduce(
+    (total, asset) => total + asset.derivatives.length,
+    0,
+  );
 
   const importMedia = async (): Promise<void> => {
     const updatedProject = await mediaImport.chooseAndImport(project.project.id);
@@ -109,6 +137,22 @@ function EditorScreen({
     const accepted = await mediaAnalysis.analyze(project.project.id, mediaId);
 
     if (!accepted) {
+      return;
+    }
+
+    const refreshed = await window.editar.projects.open({
+      projectId: project.project.id,
+    });
+
+    if (refreshed.ok) {
+      onProjectChange(refreshed.data);
+    }
+  };
+
+  const optimizeMedia = async (mediaId: EntityId<"media">): Promise<void> => {
+    const result = await mediaCache.generate(project.project.id, mediaId);
+
+    if (!result) {
       return;
     }
 
@@ -151,12 +195,17 @@ function EditorScreen({
           lastResult={mediaImport.lastResult}
           engineStatus={mediaAnalysis.engine.status}
           analyzingMediaId={mediaAnalysis.activeMediaId}
+          optimizingMediaId={mediaCache.activeMediaId}
           analysisMessage={mediaAnalysis.message}
           analysisErrorMessage={mediaAnalysis.errorMessage || mediaAnalysis.engine.errorMessage}
+          cacheMessage={mediaCache.message}
+          cacheErrorMessage={mediaCache.errorMessage}
           onImport={() => void importMedia()}
           onAnalyze={(mediaId) => void analyzeMedia(mediaId)}
+          onOptimize={(mediaId) => void optimizeMedia(mediaId)}
           onClearResult={mediaImport.clearResult}
           onClearAnalysisMessages={mediaAnalysis.clearMessages}
+          onClearCacheMessages={mediaCache.clearMessages}
         />
 
         <div className="editor-center">
@@ -278,6 +327,10 @@ function EditorScreen({
               </small>
             </div>
             <div className="property-row">
+              <span>Derivados</span>
+              <small>{derivativeCount}</small>
+            </div>
+            <div className="property-row">
               <span>Clips</span>
               <small>{project.clips.length}</small>
             </div>
@@ -292,4 +345,4 @@ function EditorScreen({
   );
 }
 
-export { EditorScreen, type EditorScreenProps };
+export { DERIVATIVE_JOB_KINDS, EditorScreen, type EditorScreenProps };

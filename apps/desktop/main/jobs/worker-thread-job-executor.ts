@@ -3,7 +3,7 @@ Nombre completo: worker-thread-job-executor.ts
 Ruta o ubicación: /apps/desktop/main/jobs/worker-thread-job-executor.ts
 
 Función o funciones:
-- Ejecutar diagnósticos y FFprobe dentro de Worker Threads.
+- Ejecutar diagnósticos, FFprobe y FFmpeg dentro de Worker Threads.
 - Traducir progreso, resultados, errores y cancelaciones.
 - Solicitar una detención cooperativa antes de terminar el Worker.
 ========================================================= */
@@ -30,6 +30,14 @@ type WorkerMessage =
   | { readonly type: "failed"; readonly error: JobErrorInfo }
   | { readonly type: "aborted" };
 
+const SUPPORTED_JOB_KINDS: readonly JobKind[] = Object.freeze([
+  "diagnostic-worker",
+  "probe-media",
+  "generate-proxy",
+  "generate-waveform",
+  "generate-thumbnails",
+]);
+
 class JobWorkerError extends Error {
   constructor(readonly info: JobErrorInfo) {
     super(info.message);
@@ -53,7 +61,7 @@ class WorkerThreadJobExecutor implements JobExecutor {
   }
 
   supports(kind: JobKind): boolean {
-    return kind === "diagnostic-worker" || kind === "probe-media";
+    return SUPPORTED_JOB_KINDS.includes(kind);
   }
 
   execute(
@@ -120,7 +128,7 @@ class WorkerThreadJobExecutor implements JobExecutor {
           void worker.terminate().finally(() => {
             finish(() => reject(new JobExecutionAbortedError()));
           });
-        }, 1_500);
+        }, 2_500);
       };
 
       if (signal.aborted) {
@@ -197,5 +205,6 @@ class WorkerThreadJobExecutor implements JobExecutor {
 export {
   JobExecutionAbortedError,
   JobWorkerError,
+  SUPPORTED_JOB_KINDS,
   WorkerThreadJobExecutor,
 };

@@ -5,7 +5,7 @@ Ruta o ubicación: /apps/desktop/preload/preload.cts
 Función o funciones:
 - Exponer una API limitada y tipada al renderer.
 - Enviar solicitudes únicamente por canales IPC autorizados.
-- Proporcionar operaciones seguras del sistema, medios y trabajos.
+- Proporcionar operaciones seguras del sistema, medios, caché y trabajos.
 ========================================================= */
 
 const { contextBridge, ipcRenderer } = require("electron") as typeof import("electron");
@@ -22,6 +22,10 @@ type JobActionResult = import("../shared/job-queue-contracts.js").JobActionResul
 type JobIdInput = import("../shared/job-queue-contracts.js").JobIdInput;
 type JobQueueSnapshot = import("../shared/job-queue-contracts.js").JobQueueSnapshot;
 type ProjectJobInput = import("../shared/job-queue-contracts.js").ProjectJobInput;
+type GenerateMediaDerivativesInput = import("../shared/media-cache-contracts.js").GenerateMediaDerivativesInput;
+type MediaCacheClearResult = import("../shared/media-cache-contracts.js").MediaCacheClearResult;
+type MediaCacheStatus = import("../shared/media-cache-contracts.js").MediaCacheStatus;
+type MediaDerivativeRequestResult = import("../shared/media-cache-contracts.js").MediaDerivativeRequestResult;
 type AnalyzeMediaInput = import("../shared/media-engine-contracts.js").AnalyzeMediaInput;
 type MediaAnalysisRequestResult = import("../shared/media-engine-contracts.js").MediaAnalysisRequestResult;
 type MediaEngineStatus = import("../shared/media-engine-contracts.js").MediaEngineStatus;
@@ -51,6 +55,9 @@ const IPC_CHANNELS = Object.freeze({
   mediaChooseAndImport: "media:choose-and-import",
   mediaGetEngineStatus: "media:get-engine-status",
   mediaAnalyze: "media:analyze",
+  mediaGenerateDerivatives: "media:generate-derivatives",
+  mediaGetCacheStatus: "media:get-cache-status",
+  mediaClearCache: "media:clear-cache",
   jobsGetSnapshot: "jobs:get-snapshot",
   jobsEnqueueDiagnostic: "jobs:enqueue-diagnostic",
   jobsPause: "jobs:pause",
@@ -133,6 +140,15 @@ const bridge: EditarBridge = Object.freeze({
         IPC_CHANNELS.mediaAnalyze,
         input,
       ),
+    generateDerivatives: (input: GenerateMediaDerivativesInput) =>
+      invoke<MediaDerivativeRequestResult, GenerateMediaDerivativesInput>(
+        IPC_CHANNELS.mediaGenerateDerivatives,
+        input,
+      ),
+    getCacheStatus: () =>
+      invoke<MediaCacheStatus>(IPC_CHANNELS.mediaGetCacheStatus),
+    clearCache: () =>
+      invoke<MediaCacheClearResult>(IPC_CHANNELS.mediaClearCache),
   }),
   jobs: Object.freeze({
     getSnapshot: () =>

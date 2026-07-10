@@ -5,7 +5,7 @@ Ruta o ubicación: /apps/desktop/renderer/src/screens/JobsScreen.tsx
 Función o funciones:
 - Mostrar la cola global y su progreso.
 - Crear una prueba real de procesamiento en Worker Thread.
-- Permitir pausar, reanudar, cancelar y reintentar trabajos.
+- Supervisar análisis y generación de derivados multimedia.
 ========================================================= */
 
 import { useEffect, useMemo, useState } from "react";
@@ -38,7 +38,7 @@ const kindLabels: Readonly<Record<JobKind, string>> = Object.freeze({
   "probe-media": "Analizar medio",
   "generate-proxy": "Generar proxy",
   "generate-waveform": "Generar forma de onda",
-  "generate-thumbnails": "Generar miniaturas",
+  "generate-thumbnails": "Generar miniatura",
   "extract-audio": "Extraer audio",
   "detect-silence": "Detectar silencios",
   "transcribe-audio": "Transcribir audio",
@@ -184,11 +184,12 @@ function JobsScreen({ onNavigateProjects }: JobsScreenProps): React.JSX.Element 
     <div className="screen-stack">
       <section className="screen-banner">
         <div>
-          <span className="section-label">BLOQUE 8 · SEGUNDO PLANO</span>
+          <span className="section-label">BLOQUE 10 · PROCESAMIENTO MULTIMEDIA</span>
           <h2>Centro de trabajos</h2>
           <p>
-            La cola conserva estados en SQLite y ejecuta tareas compatibles fuera
-            del renderer con un límite controlado de concurrencia.
+            La cola ejecuta FFprobe y FFmpeg fuera del renderer. Aquí puedes
+            supervisar análisis, proxies, miniaturas, formas de onda, pausas,
+            cancelaciones y reintentos.
           </p>
         </div>
         <div className="queue-health">
@@ -218,8 +219,8 @@ function JobsScreen({ onNavigateProjects }: JobsScreenProps): React.JSX.Element 
           <span className="section-label">PRUEBA DEL MOTOR</span>
           <h2>Verificar Worker Thread</h2>
           <p>
-            Ejecuta una tarea corta con progreso real fuera de la interfaz. Esta
-            misma infraestructura recibirá FFmpeg y FFprobe.
+            Ejecuta una tarea corta con progreso real. La misma infraestructura
+            procesa actualmente FFprobe, proxies, miniaturas y formas de onda.
           </p>
         </div>
         {projects.length > 0 ? (
@@ -295,7 +296,7 @@ function JobsScreen({ onNavigateProjects }: JobsScreenProps): React.JSX.Element 
           <div className="projects-empty-state">
             <AppIcon name="jobs" size={34} />
             <h3>La cola está vacía</h3>
-            <p>Ejecuta el diagnóstico para comprobar el procesamiento en segundo plano.</p>
+            <p>Importa un medio o ejecuta el diagnóstico para crear trabajos.</p>
           </div>
         )}
       </section>

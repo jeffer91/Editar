@@ -4,8 +4,8 @@ Ruta o ubicación: /apps/desktop/main/media/media-request-validation.ts
 
 Función o funciones:
 - Validar identificadores de proyecto y medio recibidos por IPC.
-- Impedir que el renderer envíe rutas o comandos de FFprobe.
-- Convertir errores del dominio a solicitudes controladas.
+- Impedir que el renderer envíe rutas o comandos multimedia.
+- Compartir validación entre análisis y generación de derivados.
 ========================================================= */
 
 import {
@@ -13,6 +13,7 @@ import {
   parseEntityId,
   type EntityId,
 } from "../../shared/domain/index.js";
+import type { GenerateMediaDerivativesInput } from "../../shared/media-cache-contracts.js";
 import type { AnalyzeMediaInput } from "../../shared/media-engine-contracts.js";
 import { IpcRequestError, isRecord } from "../ipc/ipc-validation.js";
 
@@ -38,11 +39,11 @@ function parseTypedId<TKind extends "project" | "media">(
   }
 }
 
-function parseAnalyzeMediaInput(value: unknown): AnalyzeMediaInput {
+function parseProjectMediaInput(value: unknown): GenerateMediaDerivativesInput {
   if (!isRecord(value)) {
     throw new IpcRequestError(
       "INVALID_REQUEST",
-      "Los datos para analizar el recurso no son válidos.",
+      "Los datos del recurso multimedia no son válidos.",
     );
   }
 
@@ -52,4 +53,19 @@ function parseAnalyzeMediaInput(value: unknown): AnalyzeMediaInput {
   });
 }
 
-export { parseAnalyzeMediaInput, parseTypedId };
+function parseAnalyzeMediaInput(value: unknown): AnalyzeMediaInput {
+  return parseProjectMediaInput(value);
+}
+
+function parseGenerateMediaDerivativesInput(
+  value: unknown,
+): GenerateMediaDerivativesInput {
+  return parseProjectMediaInput(value);
+}
+
+export {
+  parseAnalyzeMediaInput,
+  parseGenerateMediaDerivativesInput,
+  parseProjectMediaInput,
+  parseTypedId,
+};

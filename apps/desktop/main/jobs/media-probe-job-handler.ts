@@ -4,8 +4,8 @@ Ruta o ubicación: /apps/desktop/main/jobs/media-probe-job-handler.ts
 
 Función o funciones:
 - Aplicar metadatos técnicos producidos por FFprobe.
-- Registrar fallos definitivos en el recurso multimedia.
-- Restablecer el estado pendiente antes de un reintento.
+- Iniciar derivados optimizados después de un análisis correcto.
+- Registrar fallos y restablecer estado antes de un reintento.
 ========================================================= */
 
 import {
@@ -18,6 +18,7 @@ import {
   type MediaMetadata,
 } from "../../shared/domain/index.js";
 import type { MediaAssetRepository } from "../../shared/persistence/media-asset-repository.js";
+import type { MediaDerivativeScheduler } from "../media/media-derivative-service.js";
 import type { JobResultHandler } from "./job-result-handler.js";
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
@@ -47,7 +48,10 @@ function metadataFromResult(
 }
 
 class MediaProbeJobHandler implements JobResultHandler {
-  constructor(private readonly media: MediaAssetRepository) {}
+  constructor(
+    private readonly media: MediaAssetRepository,
+    private readonly derivativeScheduler?: MediaDerivativeScheduler,
+  ) {}
 
   async complete(
     job: JobRecord,
@@ -77,6 +81,17 @@ class MediaProbeJobHandler implements JobResultHandler {
     });
 
     await this.media.update(updated);
+
+    if (this.derivativeScheduler) {
+      try {
+        await this.derivativeScheduler.enqueueForAsset(updated, [job.id]);
+      } catch (error) {
+        console.warn(
+          "El análisis terminó, pero los derivados quedaron pendientes:",
+          error,
+        );
+      }
+    }
   }
 
   async fail(job: JobRecord, error: JobErrorInfo): Promise<void> {

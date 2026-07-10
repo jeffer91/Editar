@@ -4,8 +4,8 @@ Ruta o ubicación: /apps/desktop/main/main.ts
 
 Función o funciones:
 - Iniciar el proceso principal de Electron.
-- Integrar SQLite, FFmpeg/FFprobe y la cola persistente.
-- Registrar IPC y cerrar trabajadores de forma ordenada.
+- Integrar SQLite, motores, derivados y caché multimedia.
+- Registrar IPC, protocolo interno y cierre ordenado de Workers.
 ========================================================= */
 
 import { app, BrowserWindow } from "electron";
@@ -20,15 +20,26 @@ import { registerJobQueueIpc } from "./ipc/register-job-queue-ipc.js";
 import { registerMediaIpc } from "./ipc/register-media-ipc.js";
 import { registerProjectIpc } from "./ipc/register-project-ipc.js";
 import { registerSystemIpc } from "./ipc/register-system-ipc.js";
+import { CompositeJobResultHandler } from "./jobs/composite-job-result-handler.js";
 import { JobQueueService } from "./jobs/job-queue-service.js";
+import { MediaDerivativeJobHandler } from "./jobs/media-derivative-job-handler.js";
 import { MediaProbeJobHandler } from "./jobs/media-probe-job-handler.js";
 import { WorkerThreadJobExecutor } from "./jobs/worker-thread-job-executor.js";
 import { FfmpegBinaryService } from "./media/ffmpeg-binary-service.js";
 import { MediaAnalysisService } from "./media/media-analysis-service.js";
+import {
+  registerMediaCacheProtocol,
+  registerMediaCacheScheme,
+} from "./media/media-cache-protocol.js";
+import { MediaCachePaths } from "./media/media-cache-paths.js";
+import { MediaCacheService } from "./media/media-cache-service.js";
+import { MediaDerivativeService } from "./media/media-derivative-service.js";
 import { MediaImportService } from "./media/media-import-service.js";
 import { ProjectManagementService } from "./projects/project-management-service.js";
 import { applyWindowSecurity } from "./security/window-security.js";
 import type { TrustedSourceOptions } from "./security/trusted-sources.js";
+
+registerMediaCacheScheme();
 
 const currentFile = fileURLToPath(import.meta.url);
 const currentDirectory = dirname(currentFile);
@@ -125,14 +136,38 @@ app
       resourcesPath: process.resourcesPath,
       workspacePath: process.cwd(),
     });
+    const cachePaths = new MediaCachePaths(
+      join(app.getPath("userData"), "cache", "media"),
+    );
+    const mediaCacheService = new MediaCacheService({
+      paths: cachePaths,
+      media: service.media,
+      jobs: service.jobs,
+    });
+    await mediaCacheService.reconcile();
+
+    const resultHandler = new CompositeJobResultHandler();
     const jobQueue = new JobQueueService({
       repository: service.jobs,
       projects: service.projects,
       executor: new WorkerThreadJobExecutor(),
-      resultHandler: new MediaProbeJobHandler(service.media),
+      resultHandler,
       concurrency: 2,
       pollIntervalMs: 250,
     });
+    const mediaDerivativeService = new MediaDerivativeService({
+      projects: service.projects,
+      media: service.media,
+      jobs: service.jobs,
+      engines,
+      queue: jobQueue,
+      paths: cachePaths,
+    });
+    resultHandler.add(
+      new MediaProbeJobHandler(service.media, mediaDerivativeService),
+      new MediaDerivativeJobHandler(service.media, cachePaths),
+    );
+
     const mediaAnalysisService = new MediaAnalysisService({
       projects: service.projects,
       media: service.media,
@@ -144,6 +179,11 @@ app
       service.projects,
       mediaAnalysisService,
     );
+
+    await registerMediaCacheProtocol({
+      media: service.media,
+      paths: cachePaths,
+    });
 
     jobQueueService = jobQueue;
     await jobQueue.start();
@@ -164,6 +204,8 @@ app
       trustedSources,
       mediaImportService,
       mediaAnalysisService,
+      mediaDerivativeService,
+      mediaCacheService,
     });
     registerJobQueueIpc({
       trustedSources,

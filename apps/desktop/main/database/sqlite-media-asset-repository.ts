@@ -3,9 +3,9 @@ Nombre completo: sqlite-media-asset-repository.ts
 Ruta o ubicación: /apps/desktop/main/database/sqlite-media-asset-repository.ts
 
 Función o funciones:
-- Leer y actualizar recursos multimedia individuales.
-- Persistir resultados de FFprobe sin reescribir el proyecto.
-- Mantener columnas normalizadas y JSON sincronizados.
+- Leer, listar y actualizar recursos multimedia.
+- Persistir metadatos y derivados sin reescribir el proyecto.
+- Facilitar reconciliación y limpieza de caché.
 ========================================================= */
 
 import type {
@@ -27,7 +27,9 @@ function parseMediaAsset(value: string): MediaAsset {
       ...asset,
       inspection: Object.freeze({ ...asset.inspection }),
       metadata: asset.metadata ? Object.freeze({ ...asset.metadata }) : undefined,
-      derivatives: Object.freeze([...(asset.derivatives ?? [])]),
+      derivatives: Object.freeze(
+        (asset.derivatives ?? []).map((derivative) => Object.freeze({ ...derivative })),
+      ),
     });
   } catch (error) {
     throw new Error("No fue posible interpretar el recurso multimedia almacenado.", {
@@ -45,6 +47,14 @@ class SqliteMediaAssetRepository implements MediaAssetRepository {
       .get(id) as MediaRow | undefined;
 
     return row ? parseMediaAsset(row.data_json) : null;
+  }
+
+  async listAll(): Promise<readonly MediaAsset[]> {
+    const rows = this.database
+      .prepare("SELECT data_json FROM media_assets ORDER BY imported_at ASC, id ASC")
+      .all() as unknown as MediaRow[];
+
+    return Object.freeze(rows.map((row) => parseMediaAsset(row.data_json)));
   }
 
   async update(asset: MediaAsset): Promise<void> {

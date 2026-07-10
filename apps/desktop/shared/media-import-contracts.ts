@@ -4,7 +4,7 @@ Ruta o ubicación: /apps/desktop/shared/media-import-contracts.ts
 
 Función o funciones:
 - Definir contratos públicos para importar y analizar medios.
-- Compartir resultados entre main, preload y renderer.
+- Incorporar generación y limpieza de derivados multimedia.
 - Mantener rutas y procesamiento fuera de la interfaz React.
 ========================================================= */
 
@@ -15,6 +15,7 @@ import type {
   ProjectDocument,
 } from "./domain/index.js";
 import type { IpcResult } from "./ipc-contracts.js";
+import type { MediaCacheBridge } from "./media-cache-contracts.js";
 import type {
   AnalyzeMediaInput,
   MediaAnalysisRequestResult,
@@ -65,7 +66,7 @@ interface MediaImportResult {
   readonly summary: MediaImportSummary;
 }
 
-interface MediaImportBridge {
+interface MediaImportBridge extends MediaCacheBridge {
   chooseAndImport(input: ImportMediaInput): Promise<IpcResult<MediaImportResult>>;
   getEngineStatus(): Promise<IpcResult<MediaEngineStatus>>;
   analyze(input: AnalyzeMediaInput): Promise<IpcResult<MediaAnalysisRequestResult>>;
