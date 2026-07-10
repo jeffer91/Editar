@@ -12,7 +12,7 @@ Función o funciones:
 
 ## Estado
 
-**EN VERIFICACIÓN**
+**COMPLETADO Y VERIFICADO**
 
 ## Objetivo
 
@@ -73,6 +73,25 @@ El agregado del proyecto detecta:
 - transiciones con clips inexistentes o duración inválida;
 - trabajos con dependencias inexistentes;
 - ciclos entre trabajos.
+
+## Verificación realizada
+
+GitHub Actions confirmó correctamente:
+
+1. Instalación de dependencias.
+2. Limpieza de compilaciones anteriores.
+3. Typecheck del renderer.
+4. Typecheck de Electron.
+5. Compilación del renderer.
+6. Compilación de Electron.
+7. Pruebas de seguridad IPC.
+8. Pruebas de navegación.
+9. Pruebas de primitivas y tiempos.
+10. Pruebas de proyectos y recursos multimedia.
+11. Pruebas de clips, colisiones y velocidades.
+12. Pruebas de textos, efectos y transiciones.
+13. Pruebas de trabajos y dependencias.
+14. Pruebas de integridad del documento completo.
 
 ## Criterios de aprobación
 
