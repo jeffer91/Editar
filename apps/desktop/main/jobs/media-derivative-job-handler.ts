@@ -4,21 +4,24 @@ Ruta o ubicación: /apps/desktop/main/jobs/media-derivative-job-handler.ts
 
 Función o funciones:
 - Validar y persistir derivados producidos por FFmpeg.
-- Reemplazar por tipo sin perder el derivado anterior antes del éxito.
-- Limpiar archivos temporales y salidas huérfanas en fallos o reintentos.
+- Guardar el plan aplicado en versiones con silencios reducidos.
+- Limpiar temporales, scripts y salidas huérfanas.
 ========================================================= */
 
 import {
   parseEntityId,
+  setMediaSilenceReduction,
   upsertMediaDerivative,
+  validateSilenceReductionPlan,
   type EntityId,
   type JobErrorInfo,
   type JobKind,
   type JobRecord,
   type JsonValue,
   type MediaDerivative,
+  type SilenceReductionPlan,
 } from "../../shared/domain/index.js";
-import type { GeneratedDerivativeType } from "../../shared/media-cache-contracts.js";
+import type { ManagedDerivativeType } from "../../shared/media-cache-contracts.js";
 import type { MediaAssetRepository } from "../../shared/persistence/media-asset-repository.js";
 import { MediaCachePaths } from "../media/media-cache-paths.js";
 import type { JobResultHandler } from "./job-result-handler.js";
@@ -27,6 +30,7 @@ const DERIVATIVE_JOB_KINDS: readonly JobKind[] = Object.freeze([
   "generate-proxy",
   "generate-waveform",
   "generate-thumbnails",
+  "reduce-silence",
 ]);
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
@@ -72,9 +76,9 @@ function derivativeFromResult(
   const type = requiredString(
     raw.type,
     "El derivado no contiene un tipo válido.",
-  ) as GeneratedDerivativeType;
+  ) as ManagedDerivativeType;
 
-  if (!["proxy", "thumbnail", "waveform"].includes(type)) {
+  if (!["proxy", "thumbnail", "waveform", "silence-reduced"].includes(type)) {
     throw new Error("El tipo del derivado no está permitido.");
   }
 
@@ -102,6 +106,20 @@ function derivativeFromResult(
       "El derivado no contiene una fecha válida.",
     ) as MediaDerivative["createdAt"],
   });
+}
+
+function silenceReductionFromResult(
+  result: Readonly<Record<string, JsonValue>> | undefined,
+): SilenceReductionPlan {
+  const raw = result?.silenceReduction;
+
+  if (!isRecord(raw)) {
+    throw new Error("FFmpeg terminó sin devolver el plan de reducción aplicado.");
+  }
+
+  return validateSilenceReductionPlan(
+    raw as unknown as SilenceReductionPlan,
+  );
 }
 
 class MediaDerivativeJobHandler implements JobResultHandler {
@@ -134,11 +152,22 @@ class MediaDerivativeJobHandler implements JobResultHandler {
     const previous = asset.derivatives.find(
       (current) => current.type === derivative.type,
     );
-    await this.media.update(upsertMediaDerivative(asset, derivative));
+    const withDerivative = upsertMediaDerivative(asset, derivative);
+    const updated =
+      job.kind === "reduce-silence"
+        ? setMediaSilenceReduction(
+            withDerivative,
+            silenceReductionFromResult(result),
+          )
+        : withDerivative;
+
+    await this.media.update(updated);
 
     if (previous && previous.path !== derivative.path && this.paths.isManagedPath(previous.path)) {
       await this.paths.removeFile(previous.path).catch(() => undefined);
     }
+
+    await this.cleanupAuxiliary(job);
   }
 
   async fail(job: JobRecord, _error: JobErrorInfo): Promise<void> {
@@ -153,12 +182,25 @@ class MediaDerivativeJobHandler implements JobResultHandler {
     }
   }
 
+  private async cleanupAuxiliary(job: JobRecord): Promise<void> {
+    const filterScriptPath = job.payload.filterScriptPath;
+
+    if (
+      typeof filterScriptPath === "string" &&
+      this.paths.isManagedPath(filterScriptPath)
+    ) {
+      await this.paths.removeFile(filterScriptPath).catch(() => undefined);
+    }
+  }
+
   private async cleanupJobArtifacts(job: JobRecord): Promise<void> {
     const temporaryPath = job.payload.temporaryPath;
 
     if (typeof temporaryPath === "string" && this.paths.isManagedPath(temporaryPath)) {
       await this.paths.removeFile(temporaryPath).catch(() => undefined);
     }
+
+    await this.cleanupAuxiliary(job);
 
     const outputPath = job.payload.outputPath;
 
@@ -186,4 +228,5 @@ export {
   MediaDerivativeJobHandler,
   derivativeFromResult,
   mediaIdFromDerivativeJob,
+  silenceReductionFromResult,
 };
