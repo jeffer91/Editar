@@ -31,6 +31,10 @@ import type {
 } from "../../shared/timeline-editing-contracts.js";
 import { IpcRequestError, isRecord } from "../ipc/ipc-validation.js";
 
+type MutableTextStylePatch = {
+  -readonly [TKey in keyof TextStyle]?: TextStyle[TKey];
+};
+
 function parseId<TEntity extends string>(
   value: unknown,
   type: TEntity,
@@ -74,7 +78,10 @@ function parseNumber(
   return parsed;
 }
 
-function requireRecord(value: unknown, message: string): Readonly<Record<string, unknown>> {
+function requireRecord(
+  value: unknown,
+  message: string,
+): Readonly<Record<string, unknown>> {
   if (!isRecord(value)) {
     throw new IpcRequestError("INVALID_REQUEST", message);
   }
@@ -83,7 +90,10 @@ function requireRecord(value: unknown, message: string): Readonly<Record<string,
 }
 
 function parseAddMediaClipRequest(value: unknown): AddMediaClipRequest {
-  const input = requireRecord(value, "Los datos para añadir el medio no son válidos.");
+  const input = requireRecord(
+    value,
+    "Los datos para añadir el medio no son válidos.",
+  );
 
   return Object.freeze({
     projectId: parseId(input.projectId, "project", "El proyecto"),
@@ -124,7 +134,10 @@ function parseAddMediaClipRequest(value: unknown): AddMediaClipRequest {
 }
 
 function parseMoveClipRequest(value: unknown): MoveClipRequest {
-  const input = requireRecord(value, "Los datos para mover el clip no son válidos.");
+  const input = requireRecord(
+    value,
+    "Los datos para mover el clip no son válidos.",
+  );
 
   return Object.freeze({
     projectId: parseId(input.projectId, "project", "El proyecto"),
@@ -140,7 +153,10 @@ function parseMoveClipRequest(value: unknown): MoveClipRequest {
 }
 
 function parseTrimClipRequest(value: unknown): TrimClipRequest {
-  const input = requireRecord(value, "Los datos para recortar el clip no son válidos.");
+  const input = requireRecord(
+    value,
+    "Los datos para recortar el clip no son válidos.",
+  );
 
   return Object.freeze({
     projectId: parseId(input.projectId, "project", "El proyecto"),
@@ -151,7 +167,12 @@ function parseTrimClipRequest(value: unknown): TrimClipRequest {
       0,
       86_400_000,
     )!,
-    durationMs: parseNumber(input.durationMs, "La duración", 10, 86_400_000)!,
+    durationMs: parseNumber(
+      input.durationMs,
+      "La duración",
+      10,
+      86_400_000,
+    )!,
     sourceStartMs: parseNumber(
       input.sourceStartMs,
       "El punto de entrada",
@@ -163,17 +184,28 @@ function parseTrimClipRequest(value: unknown): TrimClipRequest {
 }
 
 function parseSplitClipRequest(value: unknown): SplitClipRequest {
-  const input = requireRecord(value, "Los datos para dividir el clip no son válidos.");
+  const input = requireRecord(
+    value,
+    "Los datos para dividir el clip no son válidos.",
+  );
 
   return Object.freeze({
     projectId: parseId(input.projectId, "project", "El proyecto"),
     clipId: parseId(input.clipId, "clip", "El clip"),
-    splitAtMs: parseNumber(input.splitAtMs, "El punto de corte", 10, 86_400_000)!,
+    splitAtMs: parseNumber(
+      input.splitAtMs,
+      "El punto de corte",
+      10,
+      86_400_000,
+    )!,
   });
 }
 
 function parseDeleteClipRequest(value: unknown): DeleteClipRequest {
-  const input = requireRecord(value, "Los datos para eliminar el clip no son válidos.");
+  const input = requireRecord(
+    value,
+    "Los datos para eliminar el clip no son válidos.",
+  );
 
   return Object.freeze({
     projectId: parseId(input.projectId, "project", "El proyecto"),
@@ -183,13 +215,20 @@ function parseDeleteClipRequest(value: unknown): DeleteClipRequest {
 
 function parseBoolean(value: unknown, label: string): boolean | undefined {
   if (value === undefined) return undefined;
+
   if (typeof value !== "boolean") {
-    throw new IpcRequestError("INVALID_REQUEST", `${label} debe ser verdadero o falso.`);
+    throw new IpcRequestError(
+      "INVALID_REQUEST",
+      `${label} debe ser verdadero o falso.`,
+    );
   }
+
   return value;
 }
 
-function parseUpdateTrackStateRequest(value: unknown): UpdateTrackStateRequest {
+function parseUpdateTrackStateRequest(
+  value: unknown,
+): UpdateTrackStateRequest {
   const input = requireRecord(value, "Los datos de la pista no son válidos.");
 
   return Object.freeze({
@@ -203,10 +242,14 @@ function parseUpdateTrackStateRequest(value: unknown): UpdateTrackStateRequest {
 
 function parseContent(value: unknown): string {
   if (typeof value !== "string") {
-    throw new IpcRequestError("INVALID_REQUEST", "El contenido del texto no es válido.");
+    throw new IpcRequestError(
+      "INVALID_REQUEST",
+      "El contenido del texto no es válido.",
+    );
   }
 
   const content = value.replace(/\r\n/g, "\n").trim();
+
   if (content.length < 1 || content.length > 100_000) {
     throw new IpcRequestError(
       "INVALID_REQUEST",
@@ -218,14 +261,17 @@ function parseContent(value: unknown): string {
 }
 
 function parseAddTextClipRequest(value: unknown): AddTextClipRequest {
-  const input = requireRecord(value, "Los datos para crear el texto no son válidos.");
+  const input = requireRecord(
+    value,
+    "Los datos para crear el texto no son válidos.",
+  );
   const templateId = input.templateId;
 
-  if (
-    typeof templateId !== "string" ||
-    !(templateId in TEXT_TEMPLATES)
-  ) {
-    throw new IpcRequestError("INVALID_REQUEST", "La plantilla de texto no está permitida.");
+  if (typeof templateId !== "string" || !(templateId in TEXT_TEMPLATES)) {
+    throw new IpcRequestError(
+      "INVALID_REQUEST",
+      "La plantilla de texto no está permitida.",
+    );
   }
 
   return Object.freeze({
@@ -255,60 +301,120 @@ function parseAddTextClipRequest(value: unknown): AddTextClipRequest {
 
 function parseColor(value: unknown, label: string): string {
   if (typeof value !== "string" || !/^#[0-9a-f]{6}$/i.test(value)) {
-    throw new IpcRequestError("INVALID_REQUEST", `${label} debe usar #RRGGBB.`);
+    throw new IpcRequestError(
+      "INVALID_REQUEST",
+      `${label} debe usar #RRGGBB.`,
+    );
   }
+
   return value.toUpperCase();
 }
 
 function parseTextStylePatch(value: unknown): TextStylePatch | undefined {
   if (value === undefined) return undefined;
+
   const style = requireRecord(value, "El estilo del texto no es válido.");
-  const output: Partial<TextStyle> = {};
+  const output: MutableTextStylePatch = {};
 
   if (style.fontFamily !== undefined) {
-    if (typeof style.fontFamily !== "string" || style.fontFamily.trim().length === 0) {
-      throw new IpcRequestError("INVALID_REQUEST", "La tipografía no es válida.");
+    if (
+      typeof style.fontFamily !== "string" ||
+      style.fontFamily.trim().length === 0
+    ) {
+      throw new IpcRequestError(
+        "INVALID_REQUEST",
+        "La tipografía no es válida.",
+      );
     }
     output.fontFamily = style.fontFamily.trim().slice(0, 120);
   }
+
   if (style.fontSizePx !== undefined) {
-    output.fontSizePx = parseNumber(style.fontSizePx, "El tamaño", 1, 10_000)!;
+    output.fontSizePx = parseNumber(
+      style.fontSizePx,
+      "El tamaño",
+      1,
+      10_000,
+    )!;
   }
+
   if (style.fontWeight !== undefined) {
     const weight = parseNumber(style.fontWeight, "El peso", 100, 900)!;
+
     if (!Number.isInteger(weight) || weight % 100 !== 0) {
-      throw new IpcRequestError("INVALID_REQUEST", "El peso debe ser múltiplo de 100.");
+      throw new IpcRequestError(
+        "INVALID_REQUEST",
+        "El peso debe ser múltiplo de 100.",
+      );
     }
     output.fontWeight = weight;
   }
+
   if (style.fontStyle !== undefined) {
     if (style.fontStyle !== "normal" && style.fontStyle !== "italic") {
-      throw new IpcRequestError("INVALID_REQUEST", "El estilo tipográfico no es válido.");
+      throw new IpcRequestError(
+        "INVALID_REQUEST",
+        "El estilo tipográfico no es válido.",
+      );
     }
     output.fontStyle = style.fontStyle;
   }
-  if (style.color !== undefined) output.color = parseColor(style.color, "El color");
+
+  if (style.color !== undefined) {
+    output.color = parseColor(style.color, "El color");
+  }
+
   if (style.backgroundColor !== undefined) {
     output.backgroundColor = parseColor(style.backgroundColor, "El fondo");
   }
+
   if (style.backgroundOpacity !== undefined) {
-    output.backgroundOpacity = parseNumber(style.backgroundOpacity, "La opacidad", 0, 1)!;
+    output.backgroundOpacity = parseNumber(
+      style.backgroundOpacity,
+      "La opacidad",
+      0,
+      1,
+    )!;
   }
+
   if (style.alignment !== undefined) {
-    if (!["left", "center", "right", "justify"].includes(String(style.alignment))) {
-      throw new IpcRequestError("INVALID_REQUEST", "La alineación no es válida.");
+    if (
+      !["left", "center", "right", "justify"].includes(
+        String(style.alignment),
+      )
+    ) {
+      throw new IpcRequestError(
+        "INVALID_REQUEST",
+        "La alineación no es válida.",
+      );
     }
     output.alignment = style.alignment as TextStyle["alignment"];
   }
+
   if (style.verticalAlignment !== undefined) {
-    if (!["top", "middle", "bottom"].includes(String(style.verticalAlignment))) {
-      throw new IpcRequestError("INVALID_REQUEST", "La alineación vertical no es válida.");
+    if (
+      !["top", "middle", "bottom"].includes(
+        String(style.verticalAlignment),
+      )
+    ) {
+      throw new IpcRequestError(
+        "INVALID_REQUEST",
+        "La alineación vertical no es válida.",
+      );
     }
-    output.verticalAlignment = style.verticalAlignment as TextStyle["verticalAlignment"];
+    output.verticalAlignment =
+      style.verticalAlignment as TextStyle["verticalAlignment"];
   }
+
   if (style.lineHeight !== undefined) {
-    output.lineHeight = parseNumber(style.lineHeight, "El interlineado", 0.1, 10)!;
+    output.lineHeight = parseNumber(
+      style.lineHeight,
+      "El interlineado",
+      0.1,
+      10,
+    )!;
   }
+
   if (style.letterSpacingPx !== undefined) {
     output.letterSpacingPx = parseNumber(
       style.letterSpacingPx,
@@ -317,8 +423,14 @@ function parseTextStylePatch(value: unknown): TextStylePatch | undefined {
       1_000,
     )!;
   }
+
   if (style.maxWidthPx !== undefined) {
-    output.maxWidthPx = parseNumber(style.maxWidthPx, "El ancho", 1, 100_000)!;
+    output.maxWidthPx = parseNumber(
+      style.maxWidthPx,
+      "El ancho",
+      1,
+      100_000,
+    )!;
   }
 
   return Object.freeze(output);
@@ -329,24 +441,37 @@ function parseAnimationPreset(
   label: string,
 ): TextAnimationPresetId | null | undefined {
   if (value === undefined || value === null) return value;
+
   if (
     typeof value !== "string" ||
     !TEXT_ANIMATION_PRESET_IDS.includes(value as TextAnimationPresetId)
   ) {
-    throw new IpcRequestError("INVALID_REQUEST", `${label} no está permitida.`);
+    throw new IpcRequestError(
+      "INVALID_REQUEST",
+      `${label} no está permitida.`,
+    );
   }
+
   return value as TextAnimationPresetId;
 }
 
-function parseUpdateTextClipRequest(value: unknown): UpdateTextClipRequest {
-  const input = requireRecord(value, "Los datos para actualizar el texto no son válidos.");
+function parseUpdateTextClipRequest(
+  value: unknown,
+): UpdateTextClipRequest {
+  const input = requireRecord(
+    value,
+    "Los datos para actualizar el texto no son válidos.",
+  );
 
   return Object.freeze({
     projectId: parseId(input.projectId, "project", "El proyecto"),
     clipId: parseId(input.clipId, "clip", "El clip"),
     content: parseContent(input.content),
     style: parseTextStylePatch(input.style),
-    entrancePresetId: parseAnimationPreset(input.entrancePresetId, "La entrada"),
+    entrancePresetId: parseAnimationPreset(
+      input.entrancePresetId,
+      "La entrada",
+    ),
     entranceDurationMs: parseNumber(
       input.entranceDurationMs,
       "La duración de entrada",
