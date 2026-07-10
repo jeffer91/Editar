@@ -20,8 +20,9 @@ Aplicación de escritorio modular para edición de video, eliminación de silenc
 - **Bloque 4:** núcleo y modelos del dominio.
 - **Bloque 5:** SQLite, migraciones, repositorios y respaldos.
 - **Bloque 6:** gestión funcional de proyectos.
+- **Bloque 7:** importación y registro de medios.
 
-La aplicación ya dispone de proceso principal, preload aislado, comunicación validada, shell responsivo, núcleo de dominio, almacenamiento SQLite y gestión completa de proyectos conectada al editor.
+La aplicación ya dispone de proceso principal, preload aislado, comunicación validada, shell responsivo, núcleo de dominio, almacenamiento SQLite, gestión de proyectos e importación real de videos, audios e imágenes.
 
 ## Requisitos
 
@@ -66,6 +67,10 @@ La verificación realiza:
 13. Pruebas de creación, apertura y listado de proyectos.
 14. Pruebas de renombrado, archivo, restauración y eliminación.
 15. Pruebas de duplicación y remapeo de identificadores.
+16. Pruebas de firmas binarias de MP4, PNG y WAV.
+17. Pruebas de hash, duplicados, cancelación e importación persistente.
+
+Cuando falla el tipado, GitHub Actions conserva el diagnóstico completo como artefacto durante siete días.
 
 ## Ejecución compilada
 
@@ -77,9 +82,32 @@ npm start
 
 - Inicio.
 - Proyectos funcionales.
-- Editor conectado al proyecto activo.
+- Editor conectado al proyecto activo e importación de medios.
 - Biblioteca.
 - Ajustes y diagnóstico.
+
+## Importación de medios
+
+El editor permite seleccionar varios archivos mediante el diálogo nativo del sistema.
+
+Formatos registrados inicialmente:
+
+- video: MP4, M4V, MOV, MKV, WEBM y AVI;
+- audio: MP3, WAV, M4A, AAC, FLAC, OGG y OPUS;
+- imagen: PNG, JPG, JPEG, WEBP, GIF y BMP.
+
+Antes de guardar cada recurso, la aplicación:
+
+1. resuelve la ruta real del archivo;
+2. confirma que sea un archivo regular y no esté vacío;
+3. valida la extensión;
+4. verifica su firma binaria;
+5. calcula un SHA-256 por streaming;
+6. busca duplicados dentro del proyecto;
+7. registra ruta, tamaño, tipo MIME y fecha de modificación;
+8. crea un snapshot cuando existen nuevas importaciones.
+
+Los archivos originales no se copian, no se renombran y no se modifican. La duración, resolución, FPS y códecs quedan pendientes hasta la integración de FFprobe.
 
 ## Gestión de proyectos
 
@@ -106,7 +134,8 @@ El núcleo utiliza:
 - modelos inmutables;
 - parámetros JSON serializables;
 - validación de referencias entre entidades;
-- estados controlados para trabajos de procesamiento.
+- estados controlados para trabajos de procesamiento;
+- estados de inspección multimedia pendientes, completos o fallidos.
 
 ## Persistencia local
 
@@ -122,7 +151,7 @@ SQLite utiliza:
 - respaldos externos con checksum SHA-256;
 - retención automática de respaldos.
 
-La interfaz nunca recibe acceso directo a SQLite. Todas las operaciones se ejecutan mediante IPC validado.
+La interfaz nunca recibe acceso directo a SQLite ni acepta rutas arbitrarias para importar. Todas las operaciones se ejecutan mediante IPC validado.
 
 ## Estructura actual
 
@@ -133,6 +162,7 @@ Editar/
 │       ├── main/
 │       │   ├── database/
 │       │   ├── ipc/
+│       │   ├── media/
 │       │   ├── projects/
 │       │   └── security/
 │       ├── preload/
@@ -140,6 +170,7 @@ Editar/
 │       │   └── src/
 │       │       ├── app/
 │       │       ├── components/
+│       │       │   ├── media/
 │       │       │   └── projects/
 │       │       └── screens/
 │       └── shared/
@@ -160,6 +191,7 @@ Editar/
 - Los videos originales nunca se modificarán.
 - La interfaz no tendrá acceso directo a Node.js ni SQLite.
 - Todo canal IPC debe declararse, tiparse y validarse.
+- Las rutas de importación solo provienen del selector nativo del proceso principal.
 - Las pantallas deben depender de componentes compartidos.
 - Los modelos del dominio no dependen de Electron ni de SQLite.
 - Todos los tiempos audiovisuales se guardan como microsegundos enteros.
@@ -172,4 +204,4 @@ Editar/
 
 ## Siguiente bloque
 
-**Bloque 7 — Importación y registro de medios.**
+**Bloque 8 — Cola de trabajos y procesamiento en segundo plano.**
