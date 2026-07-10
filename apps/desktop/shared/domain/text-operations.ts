@@ -137,16 +137,18 @@ function requireTextLayerForClip(
   clipId: EntityId<"clip">,
 ): { readonly clip: ReturnType<typeof requireClip>; readonly layer: TextLayer } {
   const clip = requireClip(document, clipId);
+  const source = clip.source;
 
   assertDomain(
-    clip.source.type === "text",
+    source.type === "text",
     "UNSUPPORTED_VALUE",
     "clipId",
     "El clip seleccionado no es una capa de texto.",
   );
 
+  const textLayerId = source.textLayerId;
   const layer = document.textLayers.find(
-    (candidate) => candidate.id === clip.source.textLayerId,
+    (candidate) => candidate.id === textLayerId,
   );
 
   assertDomain(
