@@ -5,7 +5,7 @@ Ruta o ubicación: /apps/desktop/renderer/src/screens/HomeScreen.tsx
 Función o funciones:
 - Mostrar el panel de inicio de la aplicación.
 - Presentar accesos directos hacia los módulos principales.
-- Informar la versión activa del núcleo de dominio.
+- Informar el estado del dominio y la persistencia local.
 ========================================================= */
 
 import { DOMAIN_SCHEMA_VERSION } from "../../../shared/domain";
@@ -25,7 +25,7 @@ const moduleCards = [
     icon: "projects" as const,
     title: "Proyectos",
     description: "Organiza videos, recursos y versiones de trabajo.",
-    status: "Modelo listo",
+    status: "Persistencia lista",
   },
   {
     route: "editor" as const,
@@ -45,8 +45,8 @@ const moduleCards = [
     route: "settings" as const,
     icon: "settings" as const,
     title: "Ajustes",
-    description: "Preferencias, entorno y diagnóstico del sistema.",
-    status: "Disponible",
+    description: "Preferencias, SQLite, respaldos y diagnóstico.",
+    status: "SQLite disponible",
   },
 ] as const;
 
@@ -59,12 +59,13 @@ function HomeScreen({
     <div className="screen-stack">
       <section className="dashboard-hero">
         <div className="dashboard-hero__content">
-          <span className="section-label">BLOQUE 4 · NÚCLEO DEL DOMINIO</span>
-          <h2>La aplicación ya entiende cómo se construye un proyecto</h2>
+          <span className="section-label">BLOQUE 5 · PERSISTENCIA LOCAL</span>
+          <h2>Los proyectos ya tienen almacenamiento local confiable</h2>
           <p>
-            Proyectos, medios, secuencias, pistas, clips, textos, efectos,
-            transiciones y trabajos ya poseen modelos validados. Los siguientes
-            bloques podrán persistir y modificar estos datos sin redefinirlos.
+            SQLite guarda proyectos completos mediante transacciones, conserva
+            snapshots de recuperación y permite verificar la integridad o crear
+            respaldos desde Ajustes. La interfaz nunca accede directamente a la
+            base de datos.
           </p>
           <div className="dashboard-hero__actions">
             <button
@@ -78,9 +79,9 @@ function HomeScreen({
             <button
               className="secondary-button"
               type="button"
-              onClick={() => onNavigate("editor")}
+              onClick={() => onNavigate("settings")}
             >
-              Explorar editor
+              Revisar almacenamiento
             </button>
           </div>
         </div>
@@ -118,11 +119,11 @@ function HomeScreen({
         </article>
         <article className="metric-card">
           <span className="metric-card__icon">
-            <AppIcon name="settings" />
+            <AppIcon name="projects" />
           </span>
           <div>
-            <small>Entorno</small>
-            <strong>{runtime?.platform ?? "Consultando"}</strong>
+            <small>Persistencia</small>
+            <strong>SQLite + snapshots</strong>
           </div>
         </article>
         <article className="metric-card">
@@ -130,9 +131,9 @@ function HomeScreen({
             <AppIcon name="arrow" />
           </span>
           <div>
-            <small>Latencia interna</small>
+            <small>Entorno · latencia</small>
             <strong>
-              {latencyMs === null ? "Consultando" : `${latencyMs} ms`}
+              {runtime?.platform ?? "Consultando"} · {latencyMs === null ? "…" : `${latencyMs} ms`}
             </strong>
           </div>
         </article>

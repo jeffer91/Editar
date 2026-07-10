@@ -1,0 +1,125 @@
+/* =========================================================
+Nombre completo: database-status.css
+Ruta o ubicación: /apps/desktop/renderer/src/database-status.css
+
+Función o funciones:
+- Estilizar el diagnóstico y controles de SQLite.
+- Mostrar respaldos, estado e información de almacenamiento.
+- Adaptar el panel de base de datos a ventanas pequeñas.
+========================================================= */
+
+.settings-storage {
+  min-width: 0;
+}
+
+.database-summary-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 13px;
+  align-items: center;
+  margin-bottom: 14px;
+  padding: 15px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface-soft);
+}
+
+.database-summary-card__icon {
+  display: grid;
+  width: 46px;
+  height: 46px;
+  place-items: center;
+  border-radius: 13px;
+  color: var(--success);
+  background: var(--success-soft);
+}
+
+.database-summary-card strong,
+.database-summary-card p {
+  display: block;
+}
+
+.database-summary-card strong {
+  margin-bottom: 4px;
+  font-size: 0.8rem;
+}
+
+.database-summary-card p {
+  margin-bottom: 0;
+  font-size: 0.68rem;
+  line-height: 1.5;
+}
+
+.database-table {
+  max-height: 330px;
+  overflow-y: auto;
+}
+
+.database-table .system-table__row {
+  grid-template-columns: minmax(110px, 0.48fr) minmax(0, 1fr);
+  gap: 12px;
+  padding: 10px 12px;
+  font-size: 0.68rem;
+}
+
+.database-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.database-actions .primary-button,
+.database-actions .secondary-button {
+  width: 100%;
+  padding-right: 10px;
+  padding-left: 10px;
+  font-size: 0.72rem;
+}
+
+.backup-success {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding: 11px 13px;
+  border: 1px solid #ccebd9;
+  border-radius: 12px;
+  color: var(--success);
+  background: var(--success-soft);
+}
+
+.backup-success strong,
+.backup-success small {
+  display: block;
+}
+
+.backup-success strong {
+  margin-bottom: 2px;
+  color: var(--success);
+  font-size: 0.72rem;
+}
+
+.backup-success small {
+  overflow: hidden;
+  max-width: 240px;
+  color: #46725a;
+  font-size: 0.62rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 560px) {
+  .database-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .database-table .system-table__row {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .database-table .system-table__row strong {
+    text-align: left;
+  }
+}

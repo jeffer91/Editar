@@ -4,7 +4,7 @@ Ruta o ubicación: /apps/desktop/main/main.ts
 
 Función o funciones:
 - Iniciar el proceso principal de Electron.
-- Crear una ventana segura para la aplicación.
+- Inicializar y cerrar SQLite de forma controlada.
 - Registrar IPC validado antes de cargar la interfaz.
 - Gestionar correctamente el ciclo de vida de la aplicación.
 ========================================================= */
@@ -12,6 +12,11 @@ Función o funciones:
 import { app, BrowserWindow } from "electron";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import {
+  DatabaseService,
+  createDatabasePaths,
+} from "./database/database-service.js";
+import { registerDatabaseIpc } from "./ipc/register-database-ipc.js";
 import { registerSystemIpc } from "./ipc/register-system-ipc.js";
 import { applyWindowSecurity } from "./security/window-security.js";
 import type { TrustedSourceOptions } from "./security/trusted-sources.js";
@@ -21,6 +26,7 @@ const currentDirectory = dirname(currentFile);
 const developmentUrl = process.env.VITE_DEV_SERVER_URL;
 
 let mainWindow: BrowserWindow | null = null;
+let databaseService: DatabaseService | null = null;
 
 function getPreloadPath(): string {
   return join(currentDirectory, "../preload/preload.cjs");
@@ -86,8 +92,20 @@ app
   .whenReady()
   .then(async () => {
     const trustedSources = getTrustedSources();
+    const service = new DatabaseService({
+      paths: createDatabasePaths(app.getPath("userData")),
+      automaticBackups: true,
+      maxBackups: 10,
+    });
+
+    await service.initialize();
+    databaseService = service;
 
     registerSystemIpc(trustedSources);
+    registerDatabaseIpc({
+      trustedSources,
+      databaseService: service,
+    });
     await createMainWindow(trustedSources);
 
     app.on("activate", () => {
@@ -97,9 +115,16 @@ app
     });
   })
   .catch((error: unknown) => {
+    databaseService?.close();
+    databaseService = null;
     console.error("No fue posible iniciar la aplicación:", error);
     app.quit();
   });
+
+app.once("will-quit", () => {
+  databaseService?.close();
+  databaseService = null;
+});
 
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {

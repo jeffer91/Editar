@@ -5,7 +5,7 @@
 # Función o funciones:
 # - Verificar automáticamente cada cambio enviado a main.
 # - Instalar dependencias y comprobar cada etapa por separado.
-# - Ejecutar pruebas de IPC y navegación.
+# - Ejecutar pruebas de IPC, dominio, navegación y SQLite.
 # =========================================================
 
 name: Verificar aplicación
@@ -36,7 +36,7 @@ jobs:
       - name: Configurar Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 22.16.0
 
       - name: Instalar dependencias
         run: npm install
