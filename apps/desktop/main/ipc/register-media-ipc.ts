@@ -13,6 +13,7 @@ import {
   dialog,
   ipcMain,
   type IpcMainInvokeEvent,
+  type OpenDialogOptions,
 } from "electron";
 import {
   IPC_CHANNELS,
@@ -87,10 +88,10 @@ async function chooseMediaFiles(
   event: IpcMainInvokeEvent,
 ): Promise<readonly string[] | null> {
   const parentWindow = BrowserWindow.fromWebContents(event.sender);
-  const options = {
+  const options: OpenDialogOptions = {
     title: "Importar archivos multimedia",
     buttonLabel: "Importar",
-    properties: ["openFile", "multiSelections", "dontAddToRecent"] as const,
+    properties: ["openFile", "multiSelections", "dontAddToRecent"],
     filters: [
       { name: "Archivos multimedia", extensions: [...SUPPORTED_MEDIA_EXTENSIONS] },
       { name: "Videos", extensions: VIDEO_EXTENSIONS },
