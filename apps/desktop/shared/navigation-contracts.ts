@@ -12,6 +12,7 @@ const APP_ROUTES = [
   "home",
   "projects",
   "editor",
+  "jobs",
   "library",
   "settings",
 ] as const;
@@ -22,6 +23,7 @@ type AppIconName =
   | "home"
   | "projects"
   | "editor"
+  | "jobs"
   | "library"
   | "settings"
   | "menu"
@@ -65,6 +67,13 @@ const NAVIGATION_ITEMS: readonly NavigationItem[] = Object.freeze([
     shortLabel: "Editor",
     description: "Espacio de edición y línea de tiempo",
     icon: "editor",
+  },
+  {
+    route: "jobs",
+    label: "Trabajos",
+    shortLabel: "Trabajos",
+    description: "Cola, progreso y procesamiento en segundo plano",
+    icon: "jobs",
   },
   {
     route: "library",
