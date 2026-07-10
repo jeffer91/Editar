@@ -120,6 +120,12 @@ interface CreateMediaAssetInput {
   readonly importedAt?: Date | string;
 }
 
+interface UpdateMediaInspectionInput {
+  readonly inspection: MediaInspectionInput;
+  readonly metadata?: MediaMetadata;
+  readonly availability?: MediaAvailability;
+}
+
 const HASH_PATTERN = /^[a-f0-9]{64}$/i;
 const EXTENSION_PATTERN = /^[a-z0-9]{1,12}$/i;
 const MIME_PATTERN = /^[a-z0-9][a-z0-9!#$&^_.+-]*\/[a-z0-9][a-z0-9!#$&^_.+-]*$/i;
@@ -361,6 +367,31 @@ function createMediaAsset(input: CreateMediaAssetInput): MediaAsset {
   });
 }
 
+function updateMediaInspection(
+  asset: MediaAsset,
+  input: UpdateMediaInspectionInput,
+): MediaAsset {
+  const metadata = input.inspection.status === "ready" ? input.metadata : undefined;
+
+  return createMediaAsset({
+    id: asset.id,
+    projectId: asset.projectId,
+    kind: asset.kind,
+    fileName: asset.fileName,
+    sourcePath: asset.sourcePath,
+    extension: asset.extension,
+    mimeType: asset.mimeType,
+    sizeBytes: asset.sizeBytes,
+    sourceModifiedAt: asset.sourceModifiedAt,
+    contentHash: asset.contentHash,
+    availability: input.availability ?? asset.availability,
+    inspection: input.inspection,
+    metadata,
+    derivatives: asset.derivatives,
+    importedAt: asset.importedAt,
+  });
+}
+
 function getMediaDuration(asset: MediaAsset): Microseconds | null {
   if (!asset.metadata || asset.metadata.kind === "image") {
     return null;
@@ -372,6 +403,7 @@ function getMediaDuration(asset: MediaAsset): Microseconds | null {
 export {
   createMediaAsset,
   getMediaDuration,
+  updateMediaInspection,
   validateAudioStream,
   validateFrameRate,
   validateInspection,
@@ -389,5 +421,6 @@ export {
   type MediaKind,
   type MediaMetadata,
   type RationalFrameRate,
+  type UpdateMediaInspectionInput,
   type VideoMediaMetadata,
 };
