@@ -1,0 +1,34 @@
+{
+  /* =========================================================
+  Nombre completo: tsconfig.electron.json
+  Ruta o ubicación: /tsconfig.electron.json
+
+  Función o funciones:
+  - Compilar el proceso principal y el preload de Electron.
+  - Generar archivos separados del código de la interfaz.
+  - Aplicar comprobaciones estrictas para el entorno Node.js.
+  ========================================================= */
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "rootDir": "apps/desktop",
+    "outDir": "dist-electron",
+    "types": ["node", "electron"],
+    "strict": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "sourceMap": true,
+    "declaration": false,
+    "composite": true
+  },
+  "include": [
+    "apps/desktop/main/**/*.ts",
+    "apps/desktop/preload/**/*.cts"
+  ]
+}
