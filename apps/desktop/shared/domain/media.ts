@@ -260,7 +260,14 @@ function validateInspection(
 }
 
 function defaultMimeType(kind: MediaKind): string {
-  return `${kind}/*`;
+  switch (kind) {
+    case "video":
+      return "video/unknown";
+    case "audio":
+      return "audio/unknown";
+    case "image":
+      return "image/unknown";
+  }
 }
 
 function createMediaAsset(input: CreateMediaAssetInput): MediaAsset {
