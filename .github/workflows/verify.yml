@@ -5,6 +5,7 @@
 # Función o funciones:
 # - Verificar automáticamente cada cambio enviado a main.
 # - Instalar dependencias y comprobar cada etapa por separado.
+# - Conservar diagnósticos de TypeScript cuando una etapa falla.
 # - Ejecutar pruebas de IPC, dominio, navegación y SQLite.
 # =========================================================
 
@@ -45,10 +46,38 @@ jobs:
         run: npm run clean
 
       - name: Verificar TypeScript del renderer
-        run: npx tsc -p tsconfig.renderer.json --noEmit
+        run: |
+          set +e
+          npx tsc -p tsconfig.renderer.json --noEmit > typecheck-renderer.log 2>&1
+          status=$?
+          cat typecheck-renderer.log
+          exit $status
+
+      - name: Guardar diagnóstico del renderer
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: typecheck-renderer-log
+          path: typecheck-renderer.log
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Verificar TypeScript de Electron
-        run: npx tsc -p tsconfig.electron.json --noEmit
+        run: |
+          set +e
+          npx tsc -p tsconfig.electron.json --noEmit > typecheck-electron.log 2>&1
+          status=$?
+          cat typecheck-electron.log
+          exit $status
+
+      - name: Guardar diagnóstico de Electron
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: typecheck-electron-log
+          path: typecheck-electron.log
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: Compilar renderer
         run: npm run build:renderer
