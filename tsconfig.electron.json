@@ -4,7 +4,7 @@
   Ruta o ubicación: /tsconfig.electron.json
 
   Función o funciones:
-  - Compilar el proceso principal y el preload de Electron.
+  - Compilar el proceso principal, preload y contratos compartidos.
   - Generar archivos separados del código de la interfaz.
   - Aplicar las reglas estrictas compartidas del proyecto.
   ========================================================= */
@@ -23,6 +23,7 @@
   },
   "include": [
     "apps/desktop/main/**/*.ts",
-    "apps/desktop/preload/**/*.cts"
+    "apps/desktop/preload/**/*.cts",
+    "apps/desktop/shared/**/*.ts"
   ]
 }
