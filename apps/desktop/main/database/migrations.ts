@@ -169,6 +169,27 @@ const migrationDefinitions: readonly MigrationDefinition[] = [
       CREATE INDEX idx_backup_created_at ON backup_history(created_at DESC);
     `,
   },
+  {
+    version: 3,
+    name: "cola_trabajos_persistente",
+    sql: `
+      ALTER TABLE jobs ADD COLUMN updated_at TEXT;
+      ALTER TABLE jobs ADD COLUMN attempt INTEGER NOT NULL DEFAULT 0 CHECK (attempt >= 0);
+      ALTER TABLE jobs ADD COLUMN max_attempts INTEGER NOT NULL DEFAULT 3 CHECK (max_attempts BETWEEN 1 AND 100);
+
+      UPDATE jobs
+      SET
+        updated_at = COALESCE(json_extract(data_json, '$.updatedAt'), created_at),
+        attempt = COALESCE(json_extract(data_json, '$.attempt'), 0),
+        max_attempts = COALESCE(json_extract(data_json, '$.maxAttempts'), 3);
+
+      CREATE INDEX idx_jobs_scheduler
+      ON jobs(status, priority DESC, created_at ASC);
+
+      CREATE INDEX idx_jobs_updated_at
+      ON jobs(updated_at DESC);
+    `,
+  },
 ];
 
 function calculateMigrationChecksum(definition: MigrationDefinition): string {
