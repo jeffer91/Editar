@@ -70,7 +70,8 @@ function EditorScreen({
   const audioProcessing = useAudioProcessing();
   const timeline = useTimelineEditor();
   const pendingMediaCount =
-    project?.media.filter((asset) => asset.inspection.status === "pending").length ?? 0;
+    project?.media.filter((asset) => asset.inspection.status === "pending")
+      .length ?? 0;
 
   useEffect(() => {
     if (!project) return undefined;
@@ -84,14 +85,18 @@ function EditorScreen({
           (item) =>
             item.job.projectId === project.project.id &&
             ACTIVE_MEDIA_JOB_KINDS.includes(item.job.kind) &&
-            ["pending", "preparing", "running", "paused"].includes(item.job.status),
+            ["pending", "preparing", "running", "paused"].includes(
+              item.job.status,
+            ),
         );
 
       if (pendingMediaCount === 0 && !hasActiveMediaJobs) return;
       const projectResult = await window.editar.projects.open({
         projectId: project.project.id,
       });
-      if (!cancelled && projectResult.ok) onProjectChange(projectResult.data);
+      if (!cancelled && projectResult.ok) {
+        onProjectChange(projectResult.data);
+      }
     };
 
     const timer = window.setInterval(() => void refreshWhenNeeded(), 900);
@@ -116,7 +121,11 @@ function EditorScreen({
             Selecciona un proyecto guardado o crea uno nuevo para cargar su
             secuencia, pistas y recursos en el editor.
           </p>
-          <button className="primary-button" type="button" onClick={onChooseProject}>
+          <button
+            className="primary-button"
+            type="button"
+            onClick={onChooseProject}
+          >
             Elegir proyecto
             <AppIcon name="arrow" size={18} />
           </button>
@@ -129,17 +138,22 @@ function EditorScreen({
     (total, asset) => total + asset.derivatives.length,
     0,
   );
-  const audioAnalysisCount = project.media.filter((asset) => asset.audioAnalysis).length;
-  const reducedCount = project.media.filter((asset) => asset.silenceReduction).length;
+  const audioAnalysisCount = project.media.filter(
+    (asset) => asset.audioAnalysis,
+  ).length;
+  const reducedCount = project.media.filter(
+    (asset) => asset.silenceReduction,
+  ).length;
   const selectedClip = project.clips.find(
     (clip) => clip.id === timeline.selectedClipId,
   );
-  const selectedTextLayer =
+  const selectedTextLayerId =
     selectedClip?.source.type === "text"
-      ? project.textLayers.find(
-          (layer) => layer.id === selectedClip.source.textLayerId,
-        )
-      : undefined;
+      ? selectedClip.source.textLayerId
+      : null;
+  const selectedTextLayer = selectedTextLayerId
+    ? project.textLayers.find((layer) => layer.id === selectedTextLayerId)
+    : undefined;
 
   const applyDocument = (document: ProjectDocument | null): void => {
     if (document) onProjectChange(document);
@@ -176,7 +190,11 @@ function EditorScreen({
     mediaId: EntityId<"media">,
     mode: SilenceReductionMode,
   ): Promise<void> => {
-    const result = await audioProcessing.reduce(project.project.id, mediaId, mode);
+    const result = await audioProcessing.reduce(
+      project.project.id,
+      mediaId,
+      mode,
+    );
     if (result) await refreshProject();
   };
 
@@ -191,6 +209,7 @@ function EditorScreen({
       input.timelineStartMs,
     );
     if (!moved) return;
+
     onProjectChange(moved);
     const trimmed = await timeline.trim(
       project.project.id,
@@ -205,16 +224,20 @@ function EditorScreen({
   return (
     <div className="screen-stack screen-stack--editor">
       <section className="editor-notice">
-        <span className="editor-notice__icon"><AppIcon name="editor" /></span>
+        <span className="editor-notice__icon">
+          <AppIcon name="editor" />
+        </span>
         <div>
           <strong>{project.project.name}</strong>
           <small>
             {project.project.canvas.width} × {project.project.canvas.height} ·{" "}
-            {project.project.canvas.aspectRatio} · {project.project.canvas.fps} FPS ·{" "}
-            {project.clips.length} clips · {project.textLayers.length} textos
+            {project.project.canvas.aspectRatio} · {project.project.canvas.fps} FPS
+            · {project.clips.length} clips · {project.textLayers.length} textos
           </small>
         </div>
-        <span className={`project-status project-status--${project.project.status}`}>
+        <span
+          className={`project-status project-status--${project.project.status}`}
+        >
           {project.project.status === "draft"
             ? "Borrador"
             : project.project.status === "active"
@@ -228,8 +251,18 @@ function EditorScreen({
           className={`media-import-message ${timeline.errorMessage ? "media-import-message--error" : ""}`}
           role={timeline.errorMessage ? "alert" : "status"}
         >
-          <button type="button" aria-label="Cerrar mensaje" onClick={timeline.clearMessages}>×</button>
-          <strong>{timeline.errorMessage ? "La edición no pudo guardarse" : "Edición guardada"}</strong>
+          <button
+            type="button"
+            aria-label="Cerrar mensaje"
+            onClick={timeline.clearMessages}
+          >
+            ×
+          </button>
+          <strong>
+            {timeline.errorMessage
+              ? "La edición no pudo guardarse"
+              : "Edición guardada"}
+          </strong>
           <small>{timeline.errorMessage || timeline.message}</small>
         </div>
       ) : null}
@@ -246,7 +279,9 @@ function EditorScreen({
           audioActiveMediaId={audioProcessing.activeMediaId}
           audioOperation={audioProcessing.operation}
           analysisMessage={mediaAnalysis.message}
-          analysisErrorMessage={mediaAnalysis.errorMessage || mediaAnalysis.engine.errorMessage}
+          analysisErrorMessage={
+            mediaAnalysis.errorMessage || mediaAnalysis.engine.errorMessage
+          }
           cacheMessage={mediaCache.message}
           cacheErrorMessage={mediaCache.errorMessage}
           audioMessage={audioProcessing.message}
@@ -255,7 +290,9 @@ function EditorScreen({
           onAnalyze={(mediaId) => void analyzeMedia(mediaId)}
           onOptimize={(mediaId) => void optimizeMedia(mediaId)}
           onAnalyzeAudio={(mediaId) => void analyzeAudio(mediaId)}
-          onReduceSilence={(mediaId, mode) => void reduceSilence(mediaId, mode)}
+          onReduceSilence={(mediaId, mode) =>
+            void reduceSilence(mediaId, mode)
+          }
           onClearResult={mediaImport.clearResult}
           onClearAnalysisMessages={mediaAnalysis.clearMessages}
           onClearCacheMessages={mediaCache.clearMessages}
@@ -273,7 +310,11 @@ function EditorScreen({
             >
               {selectedTextLayer ? (
                 <div
-                  className={`editor-monitor__text-preview ${selectedTextLayer.entranceAnimation ? `editor-monitor__text-preview--${selectedTextLayer.entranceAnimation.presetId}` : ""}`}
+                  className={`editor-monitor__text-preview ${
+                    selectedTextLayer.entranceAnimation
+                      ? `editor-monitor__text-preview--${selectedTextLayer.entranceAnimation.presetId}`
+                      : ""
+                  }`}
                   style={{
                     color: selectedTextLayer.style.color,
                     backgroundColor: hexToRgba(
@@ -281,7 +322,10 @@ function EditorScreen({
                       selectedTextLayer.style.backgroundOpacity,
                     ),
                     fontFamily: selectedTextLayer.style.fontFamily,
-                    fontSize: `${Math.max(14, selectedTextLayer.style.fontSizePx / 2.5)}px`,
+                    fontSize: `${Math.max(
+                      14,
+                      selectedTextLayer.style.fontSizePx / 2.5,
+                    )}px`,
                     fontWeight: selectedTextLayer.style.fontWeight,
                     fontStyle: selectedTextLayer.style.fontStyle,
                     lineHeight: selectedTextLayer.style.lineHeight,
@@ -294,13 +338,19 @@ function EditorScreen({
               ) : (
                 <>
                   <span className="editor-monitor__play">▶</span>
-                  <small>Selecciona un texto para previsualizar su animación</small>
+                  <small>
+                    Selecciona un texto para previsualizar su animación
+                  </small>
                 </>
               )}
             </div>
             <div className="editor-monitor__controls">
               <span>00:00:00:00</span>
-              <div className="editor-monitor__transport"><span>◀</span><span>▶</span><span>▶▶</span></div>
+              <div className="editor-monitor__transport">
+                <span>◀</span>
+                <span>▶</span>
+                <span>▶▶</span>
+              </div>
               <span>100%</span>
             </div>
           </div>
@@ -326,7 +376,9 @@ function EditorScreen({
                   applyDocument(document);
                   if (document) {
                     const newest = document.clips.at(-1);
-                    if (newest?.kind === "text") timeline.selectClip(newest.id);
+                    if (newest?.kind === "text") {
+                      timeline.selectClip(newest.id);
+                    }
                   }
                 })
             }
@@ -342,7 +394,9 @@ function EditorScreen({
           project={project}
           selectedClipId={timeline.selectedClipId}
           busy={timeline.operation !== null}
-          onSaveTiming={(clipId, input) => void saveClipTiming(clipId, input)}
+          onSaveTiming={(clipId, input) =>
+            void saveClipTiming(clipId, input)
+          }
           onSplit={(clipId, splitAtMs) =>
             void timeline
               .split(project.project.id, clipId, splitAtMs)
@@ -368,8 +422,9 @@ function EditorScreen({
             <h2>Edición no destructiva</h2>
           </div>
           <p>
-            {project.media.length} recursos · {audioAnalysisCount} audios analizados ·{" "}
-            {reducedCount} versiones reducidas · {derivativeCount} derivados
+            {project.media.length} recursos · {audioAnalysisCount} audios
+            analizados · {reducedCount} versiones reducidas · {derivativeCount}{" "}
+            derivados
           </p>
         </div>
       </section>
