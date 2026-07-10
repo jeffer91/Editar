@@ -5,13 +5,14 @@ Ruta o ubicación: /apps/desktop/renderer/src/main.tsx
 Función o funciones:
 - Iniciar la aplicación React.
 - Montar la interfaz dentro del elemento raíz.
-- Activar comprobaciones adicionales mediante StrictMode.
+- Cargar estilos base y estilos específicos del IPC.
 ========================================================= */
 
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import "./styles.css";
+import "./ipc-status.css";
 
 const rootElement = document.getElementById("root");
 
