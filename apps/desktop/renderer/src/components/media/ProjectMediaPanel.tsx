@@ -3,9 +3,9 @@ Nombre completo: ProjectMediaPanel.tsx
 Ruta o ubicación: /apps/desktop/renderer/src/components/media/ProjectMediaPanel.tsx
 
 Función o funciones:
-- Mostrar recursos, metadatos y derivados optimizados.
+- Mostrar recursos, metadatos, derivados y análisis acústicos.
 - Previsualizar miniaturas y formas de onda mediante protocolo interno.
-- Permitir analizar y optimizar recursos sin exponer rutas.
+- Permitir analizar audio y crear versiones con silencios reducidos.
 ========================================================= */
 
 import { useMemo, useState } from "react";
@@ -14,6 +14,7 @@ import type {
   MediaAsset,
   MediaKind,
   ProjectDocument,
+  SilenceReductionMode,
 } from "../../../../shared/domain";
 import {
   createDerivativeUrl,
@@ -21,6 +22,7 @@ import {
 } from "../../../../shared/media-cache-contracts";
 import type { MediaEngineStatus } from "../../../../shared/media-engine-contracts";
 import type { MediaImportResult } from "../../../../shared/media-import-contracts";
+import type { AudioOperation } from "../../app/use-audio-processing";
 import { AppIcon } from "../ui/AppIcon";
 
 type MediaFilter = "all" | MediaKind;
@@ -33,16 +35,26 @@ interface ProjectMediaPanelProps {
   readonly engineStatus: MediaEngineStatus | null;
   readonly analyzingMediaId: EntityId<"media"> | null;
   readonly optimizingMediaId: EntityId<"media"> | null;
+  readonly audioActiveMediaId: EntityId<"media"> | null;
+  readonly audioOperation: AudioOperation | null;
   readonly analysisMessage: string;
   readonly analysisErrorMessage: string;
   readonly cacheMessage: string;
   readonly cacheErrorMessage: string;
+  readonly audioMessage: string;
+  readonly audioErrorMessage: string;
   readonly onImport: () => void;
   readonly onAnalyze: (mediaId: EntityId<"media">) => void;
   readonly onOptimize: (mediaId: EntityId<"media">) => void;
+  readonly onAnalyzeAudio: (mediaId: EntityId<"media">) => void;
+  readonly onReduceSilence: (
+    mediaId: EntityId<"media">,
+    mode: SilenceReductionMode,
+  ) => void;
   readonly onClearResult: () => void;
   readonly onClearAnalysisMessages: () => void;
   readonly onClearCacheMessages: () => void;
+  readonly onClearAudioMessages: () => void;
 }
 
 const filterLabels: Readonly<Record<MediaFilter, string>> = Object.freeze({
@@ -118,6 +130,14 @@ function iconForKind(kind: MediaKind): "video" | "audio" | "library" {
   return kind === "video" ? "video" : kind === "audio" ? "audio" : "library";
 }
 
+function hasAudio(asset: MediaAsset): boolean {
+  return Boolean(
+    asset.metadata &&
+      (asset.metadata.kind === "audio" ||
+        (asset.metadata.kind === "video" && asset.metadata.audio)),
+  );
+}
+
 function expectedDerivativeTypes(
   asset: MediaAsset,
 ): readonly GeneratedDerivativeType[] {
@@ -167,8 +187,11 @@ function MediaPreview({ asset }: { readonly asset: MediaAsset }): React.JSX.Elem
 
 function DerivativeChips({ asset }: { readonly asset: MediaAsset }): React.JSX.Element | null {
   const expected = expectedDerivativeTypes(asset);
+  const reduced = asset.derivatives.some(
+    (derivative) => derivative.type === "silence-reduced",
+  );
 
-  if (expected.length === 0) {
+  if (expected.length === 0 && !reduced) {
     return null;
   }
 
@@ -186,6 +209,40 @@ function DerivativeChips({ asset }: { readonly asset: MediaAsset }): React.JSX.E
           </span>
         );
       })}
+      {reduced ? (
+        <span className="media-derivative-chip media-derivative-chip--reduced">
+          Sin silencios ✓
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
+function AudioSummary({ asset }: { readonly asset: MediaAsset }): React.JSX.Element | null {
+  const analysis = asset.audioAnalysis;
+
+  if (!analysis) {
+    return null;
+  }
+
+  const percentage = Math.round(analysis.silenceRatio * 100);
+
+  return (
+    <span className="media-audio-summary">
+      <span>
+        <strong>{analysis.segments.length}</strong>
+        <small>silencios</small>
+      </span>
+      <span>
+        <strong>{formatDuration(analysis.silenceDurationUs)}</strong>
+        <small>{percentage}% del audio</small>
+      </span>
+      {asset.silenceReduction ? (
+        <span>
+          <strong>{formatDuration(asset.silenceReduction.removedDurationUs)}</strong>
+          <small>reducidos</small>
+        </span>
+      ) : null}
     </span>
   );
 }
@@ -196,18 +253,29 @@ function MediaAssetItem({
   ffmpegAvailable,
   analyzing,
   optimizing,
+  audioBusy,
+  audioOperation,
   projectArchived,
   onAnalyze,
   onOptimize,
+  onAnalyzeAudio,
+  onReduceSilence,
 }: {
   readonly asset: MediaAsset;
   readonly ffprobeAvailable: boolean;
   readonly ffmpegAvailable: boolean;
   readonly analyzing: boolean;
   readonly optimizing: boolean;
+  readonly audioBusy: boolean;
+  readonly audioOperation: AudioOperation | null;
   readonly projectArchived: boolean;
   readonly onAnalyze: (mediaId: EntityId<"media">) => void;
   readonly onOptimize: (mediaId: EntityId<"media">) => void;
+  readonly onAnalyzeAudio: (mediaId: EntityId<"media">) => void;
+  readonly onReduceSilence: (
+    mediaId: EntityId<"media">,
+    mode: SilenceReductionMode,
+  ) => void;
 }): React.JSX.Element {
   const canAnalyze =
     ffprobeAvailable &&
@@ -224,6 +292,12 @@ function MediaAssetItem({
     asset.availability === "online" &&
     asset.inspection.status === "ready" &&
     missingCount > 0;
+  const canProcessAudio =
+    ffmpegAvailable &&
+    !projectArchived &&
+    asset.availability === "online" &&
+    asset.inspection.status === "ready" &&
+    hasAudio(asset);
   const inspectionTitle =
     asset.inspection.status === "pending"
       ? ffprobeAvailable
@@ -238,6 +312,7 @@ function MediaAssetItem({
         <strong>{asset.fileName}</strong>
         <small>{metadataSummary(asset)}</small>
         <DerivativeChips asset={asset} />
+        <AudioSummary asset={asset} />
         {asset.inspection.status === "failed" && asset.inspection.error ? (
           <em>{asset.inspection.error}</em>
         ) : null}
@@ -273,6 +348,40 @@ function MediaAssetItem({
             {optimizing ? "Encolando…" : `Optimizar ${missingCount}`}
           </button>
         ) : null}
+        {canProcessAudio ? (
+          <button
+            className="media-audio-button"
+            type="button"
+            disabled={audioBusy}
+            onClick={() => onAnalyzeAudio(asset.id)}
+          >
+            {audioBusy && audioOperation === "analysis"
+              ? "Analizando…"
+              : asset.audioAnalysis
+                ? "Reanalizar audio"
+                : "Analizar audio"}
+          </button>
+        ) : null}
+        {canProcessAudio && asset.audioAnalysis ? (
+          <span className="media-silence-actions">
+            <button
+              type="button"
+              disabled={audioBusy}
+              onClick={() => onReduceSilence(asset.id, "shorten")}
+            >
+              {audioBusy && audioOperation === "reduction"
+                ? "Procesando…"
+                : "Acortar"}
+            </button>
+            <button
+              type="button"
+              disabled={audioBusy}
+              onClick={() => onReduceSilence(asset.id, "remove")}
+            >
+              Eliminar
+            </button>
+          </span>
+        ) : null}
       </span>
     </article>
   );
@@ -286,16 +395,23 @@ function ProjectMediaPanel({
   engineStatus,
   analyzingMediaId,
   optimizingMediaId,
+  audioActiveMediaId,
+  audioOperation,
   analysisMessage,
   analysisErrorMessage,
   cacheMessage,
   cacheErrorMessage,
+  audioMessage,
+  audioErrorMessage,
   onImport,
   onAnalyze,
   onOptimize,
+  onAnalyzeAudio,
+  onReduceSilence,
   onClearResult,
   onClearAnalysisMessages,
   onClearCacheMessages,
+  onClearAudioMessages,
 }: ProjectMediaPanelProps): React.JSX.Element {
   const [filter, setFilter] = useState<MediaFilter>("all");
   const ffprobeAvailable = engineStatus?.ffprobe.available ?? false;
@@ -391,6 +507,19 @@ function ProjectMediaPanel({
         </div>
       ) : null}
 
+      {audioMessage || audioErrorMessage ? (
+        <div
+          className={`media-import-message ${audioErrorMessage ? "media-import-message--error" : ""}`}
+          role={audioErrorMessage ? "alert" : "status"}
+        >
+          <button type="button" aria-label="Cerrar mensaje" onClick={onClearAudioMessages}>
+            ×
+          </button>
+          <strong>{audioErrorMessage ? "No se pudo procesar el audio" : "Audio enviado a la cola"}</strong>
+          <small>{audioErrorMessage || audioMessage}</small>
+        </div>
+      ) : null}
+
       {lastResult && !lastResult.summary.canceled ? (
         <div className="media-import-message" role="status">
           <button type="button" aria-label="Cerrar resumen" onClick={onClearResult}>
@@ -419,10 +548,14 @@ function ProjectMediaPanel({
               ffmpegAvailable={ffmpegAvailable}
               analyzing={analyzingMediaId === asset.id}
               optimizing={optimizingMediaId === asset.id}
+              audioBusy={audioActiveMediaId === asset.id}
+              audioOperation={audioOperation}
               projectArchived={project.project.status === "archived"}
               key={asset.id}
               onAnalyze={onAnalyze}
               onOptimize={onOptimize}
+              onAnalyzeAudio={onAnalyzeAudio}
+              onReduceSilence={onReduceSilence}
             />
           ))
         ) : (
@@ -444,10 +577,12 @@ function ProjectMediaPanel({
 }
 
 export {
+  AudioSummary,
   DerivativeChips,
   MediaAssetItem,
   MediaPreview,
   ProjectMediaPanel,
   expectedDerivativeTypes,
+  hasAudio,
   type ProjectMediaPanelProps,
 };
