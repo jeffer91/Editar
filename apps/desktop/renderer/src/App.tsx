@@ -3,32 +3,95 @@ Nombre completo: App.tsx
 Ruta o ubicación: /apps/desktop/renderer/src/App.tsx
 
 Función o funciones:
-- Mostrar la pantalla inicial del editor.
-- Confirmar que React y el puente de Electron funcionan.
-- Presentar el estado del Bloque 1 y la arquitectura prevista.
+- Mostrar el estado del Bloque 2.
+- Consultar información mediante IPC tipado y validado.
+- Probar la conexión entre renderer, preload y proceso principal.
 ========================================================= */
+
+import { useCallback, useEffect, useState } from "react";
+import type { RuntimeInfo } from "../../shared/ipc-contracts";
 
 interface StatusItem {
   readonly label: string;
   readonly value: string;
 }
 
+type ConnectionState = "checking" | "connected" | "error";
+
 const foundations = [
-  "Electron aislado de la interfaz",
-  "React con TypeScript estricto",
-  "Compilaciones separadas",
-  "Base preparada para módulos",
+  "Canales IPC declarados y tipados",
+  "Solicitudes identificadas y validadas",
+  "Remitentes y navegación controlados",
+  "Contratos listos para nuevos módulos",
 ] as const;
 
 function App(): React.JSX.Element {
-  const runtime = window.editar.runtime;
+  const [runtime, setRuntime] = useState<RuntimeInfo | null>(null);
+  const [connectionState, setConnectionState] =
+    useState<ConnectionState>("checking");
+  const [latencyMs, setLatencyMs] = useState<number | null>(null);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  const checkConnection = useCallback(async (): Promise<void> => {
+    setConnectionState("checking");
+    setErrorMessage("");
+
+    const startedAt = performance.now();
+
+    try {
+      const [runtimeResult, pingResult] = await Promise.all([
+        window.editar.system.getRuntimeInfo(),
+        window.editar.system.ping(),
+      ]);
+
+      if (!runtimeResult.ok) {
+        throw new Error(runtimeResult.error.message);
+      }
+
+      if (!pingResult.ok) {
+        throw new Error(pingResult.error.message);
+      }
+
+      setRuntime(runtimeResult.data);
+      setLatencyMs(Math.max(0, Math.round(performance.now() - startedAt)));
+      setConnectionState("connected");
+    } catch (error) {
+      setRuntime(null);
+      setLatencyMs(null);
+      setConnectionState("error");
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "No fue posible verificar la comunicación interna.",
+      );
+    }
+  }, []);
+
+  useEffect(() => {
+    void checkConnection();
+  }, [checkConnection]);
 
   const statusItems: readonly StatusItem[] = [
-    { label: "Aplicación", value: "Editar 0.1.0" },
-    { label: "Sistema", value: runtime.platform },
-    { label: "Electron", value: runtime.versions.electron },
-    { label: "Node interno", value: runtime.versions.node },
+    { label: "Aplicación", value: runtime?.appName ?? "Consultando..." },
+    { label: "Versión", value: runtime?.appVersion ?? "Consultando..." },
+    { label: "Sistema", value: runtime?.platform ?? "Consultando..." },
+    { label: "Electron", value: runtime?.versions.electron ?? "Consultando..." },
+    {
+      label: "Modo",
+      value: runtime ? (runtime.isPackaged ? "Producción" : "Desarrollo") : "Consultando...",
+    },
+    {
+      label: "Latencia IPC",
+      value: latencyMs === null ? "Consultando..." : `${latencyMs} ms`,
+    },
   ];
+
+  const healthLabel =
+    connectionState === "connected"
+      ? "IPC conectado"
+      : connectionState === "error"
+        ? "IPC con error"
+        : "Verificando IPC";
 
   return (
     <div className="app-shell">
@@ -60,14 +123,14 @@ function App(): React.JSX.Element {
 
         <div className="sidebar-note">
           <span className="status-dot" aria-hidden="true" />
-          Bloque 1 en ejecución
+          Bloque 2 en ejecución
         </div>
       </aside>
 
       <main className="content">
         <header className="topbar">
           <div>
-            <p className="eyebrow">ARQUITECTURA BASE</p>
+            <p className="eyebrow">SEGURIDAD Y COMUNICACIÓN</p>
             <h1>Editor modular de video</h1>
           </div>
           <span className="version-chip">v0.1.0</span>
@@ -75,32 +138,53 @@ function App(): React.JSX.Element {
 
         <section className="hero-card">
           <div className="hero-copy">
-            <span className="hero-badge">Bloque 1</span>
-            <h2>La base de la aplicación está conectada</h2>
+            <span className="hero-badge">Bloque 2</span>
+            <h2>La comunicación interna ahora está controlada</h2>
             <p>
-              Electron administra el escritorio y React renderiza la interfaz.
-              El procesamiento multimedia se incorporará después mediante
-              módulos y procesos separados.
+              React solo puede usar funciones declaradas por el preload. Cada
+              solicitud pasa por canales permitidos, validación de contenido y
+              comprobación del origen antes de llegar a Electron.
             </p>
           </div>
           <div className="hero-visual" aria-hidden="true">
             <div className="timeline-line timeline-line--one" />
             <div className="timeline-line timeline-line--two" />
             <div className="timeline-line timeline-line--three" />
-            <div className="play-symbol">▶</div>
+            <div className="play-symbol">✓</div>
           </div>
         </section>
 
         <section className="section" aria-labelledby="runtime-title">
           <div className="section-heading">
             <div>
-              <p className="eyebrow">DIAGNÓSTICO INICIAL</p>
-              <h2 id="runtime-title">Entorno de ejecución</h2>
+              <p className="eyebrow">PRUEBA DE EXTREMO A EXTREMO</p>
+              <h2 id="runtime-title">Comunicación Electron</h2>
             </div>
-            <span className="health-pill">Conectado</span>
+            <div className="ipc-actions">
+              <span
+                className={`health-pill health-pill--${connectionState}`}
+                aria-live="polite"
+              >
+                {healthLabel}
+              </span>
+              <button
+                className="ipc-button"
+                type="button"
+                onClick={() => void checkConnection()}
+                disabled={connectionState === "checking"}
+              >
+                {connectionState === "checking" ? "Verificando..." : "Probar IPC"}
+              </button>
+            </div>
           </div>
 
-          <div className="status-grid">
+          {errorMessage ? (
+            <p className="ipc-error" role="alert">
+              {errorMessage}
+            </p>
+          ) : null}
+
+          <div className="status-grid status-grid--six">
             {statusItems.map((item) => (
               <article className="status-card" key={item.label}>
                 <span>{item.label}</span>
@@ -113,8 +197,8 @@ function App(): React.JSX.Element {
         <section className="section" aria-labelledby="foundation-title">
           <div className="section-heading">
             <div>
-              <p className="eyebrow">FUNDAMENTOS</p>
-              <h2 id="foundation-title">Preparada para crecer</h2>
+              <p className="eyebrow">FUNDAMENTOS DE SEGURIDAD</p>
+              <h2 id="foundation-title">Preparada para nuevos canales</h2>
             </div>
           </div>
 
