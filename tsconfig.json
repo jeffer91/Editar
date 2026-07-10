@@ -4,13 +4,17 @@
   Ruta o ubicación: /tsconfig.json
 
   Función o funciones:
-  - Centralizar las referencias de configuración TypeScript.
-  - Separar la compilación del renderer y de Electron.
-  - Evitar mezclar APIs del navegador con APIs de Node.js.
+  - Centralizar reglas TypeScript compartidas.
+  - Mantener validaciones estrictas en todos los procesos.
+  - Servir como configuración base para Electron y React.
   ========================================================= */
-  "files": [],
-  "references": [
-    { "path": "./tsconfig.renderer.json" },
-    { "path": "./tsconfig.electron.json" }
-  ]
+  "compilerOptions": {
+    "strict": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "files": []
 }
