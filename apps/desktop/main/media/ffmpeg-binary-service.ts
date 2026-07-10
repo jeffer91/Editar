@@ -5,7 +5,7 @@ Ruta o ubicación: /apps/desktop/main/media/ffmpeg-binary-service.ts
 Función o funciones:
 - Localizar FFmpeg y FFprobe sin usar shell.
 - Comprobar disponibilidad y versión con tiempo límite.
-- Priorizar variables de entorno, recursos empaquetados y PATH.
+- Exponer un contrato reemplazable para pruebas y empaquetado.
 ========================================================= */
 
 import { spawn } from "node:child_process";
@@ -22,6 +22,11 @@ interface MediaToolCommand {
   readonly argumentsPrefix: readonly string[];
   readonly source: Exclude<MediaToolSource, "unavailable">;
   readonly version: string;
+}
+
+interface MediaEngineProvider {
+  getStatus(force?: boolean): Promise<MediaEngineStatus>;
+  getCommand(tool: MediaToolName, force?: boolean): Promise<MediaToolCommand>;
 }
 
 interface ToolCandidate {
@@ -140,7 +145,7 @@ function runVersion(
   });
 }
 
-class FfmpegBinaryService {
+class FfmpegBinaryService implements MediaEngineProvider {
   private readonly environment: NodeJS.ProcessEnv;
   private readonly platform: NodeJS.Platform;
   private readonly timeoutMs: number;
@@ -305,6 +310,7 @@ export {
   MediaToolUnavailableError,
   runVersion,
   type FfmpegBinaryServiceOptions,
+  type MediaEngineProvider,
   type MediaToolCommand,
   type ToolCandidate,
   type VersionCheckResult,
