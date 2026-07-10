@@ -21,7 +21,11 @@ import {
   type Microseconds,
 } from "./primitives.js";
 import type { ProjectDocument } from "./project-document.js";
-import { finalizeTimelineDocument, requireClip, requireTrack } from "./timeline-operations.js";
+import {
+  finalizeTimelineDocument,
+  requireClip,
+  requireTrack,
+} from "./timeline-operations.js";
 import { validateTransform, type ClipTransform } from "./timeline.js";
 
 const VIDEO_STYLE_EFFECT_TYPE = "video-style";
@@ -80,15 +84,16 @@ const VIDEO_STYLE_PRESET_IDS: readonly VideoStylePresetId[] = Object.freeze([
   "vignette",
 ]);
 
-const VIDEO_ANIMATION_PRESET_IDS: readonly VideoAnimationPresetId[] = Object.freeze([
-  "none",
-  "fade-in",
-  "fade-out",
-  "zoom-in",
-  "zoom-out",
-  "pan-left",
-  "pan-right",
-]);
+const VIDEO_ANIMATION_PRESET_IDS: readonly VideoAnimationPresetId[] =
+  Object.freeze([
+    "none",
+    "fade-in",
+    "fade-out",
+    "zoom-in",
+    "zoom-out",
+    "pan-left",
+    "pan-right",
+  ]);
 
 const ANIMATION_EASINGS: readonly AnimationEasing[] = Object.freeze([
   "linear",
@@ -97,15 +102,23 @@ const ANIMATION_EASINGS: readonly AnimationEasing[] = Object.freeze([
   "ease-in-out",
 ]);
 
-function isVisualClip(document: ProjectDocument, clipId: EntityId<"clip">): boolean {
+function isVisualClip(
+  document: ProjectDocument,
+  clipId: EntityId<"clip">,
+): boolean {
   const clip = requireClip(document, clipId);
 
-  if (clip.kind === "text" || clip.kind === "generator" || clip.kind === "adjustment") {
+  if (
+    clip.kind === "text" ||
+    clip.kind === "generator" ||
+    clip.kind === "adjustment"
+  ) {
     return true;
   }
 
   if (clip.source.type !== "media") return false;
-  const media = document.media.find((candidate) => candidate.id === clip.source.mediaId);
+  const mediaId = clip.source.mediaId;
+  const media = document.media.find((candidate) => candidate.id === mediaId);
   return media?.kind === "video" || media?.kind === "image";
 }
 
@@ -113,12 +126,19 @@ function readStylePreset(
   document: ProjectDocument,
   clipId: EntityId<"clip">,
 ): { readonly presetId: VideoStylePresetId; readonly intensity: number } {
-  const effect = findOwnedEffect(document, "clip", clipId, VIDEO_STYLE_EFFECT_TYPE);
+  const effect = findOwnedEffect(
+    document,
+    "clip",
+    clipId,
+    VIDEO_STYLE_EFFECT_TYPE,
+  );
   if (!effect) return Object.freeze({ presetId: "none", intensity: 1 });
 
   const presetId =
     typeof effect.parameters.presetId === "string" &&
-    VIDEO_STYLE_PRESET_IDS.includes(effect.parameters.presetId as VideoStylePresetId)
+    VIDEO_STYLE_PRESET_IDS.includes(
+      effect.parameters.presetId as VideoStylePresetId,
+    )
       ? (effect.parameters.presetId as VideoStylePresetId)
       : "none";
   const intensity =
