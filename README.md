@@ -4,7 +4,7 @@ Ruta o ubicación: /README.md
 
 Función o funciones:
 - Documentar la finalidad y arquitectura actual del proyecto.
-- Explicar motores, derivados, caché y verificación.
+- Explicar análisis acústico, reducción de silencios y verificación.
 - Registrar los bloques completados y el siguiente bloque.
 ========================================================= -->
 
@@ -23,9 +23,11 @@ Aplicación de escritorio modular para edición de video, eliminación de silenc
 - **Bloque 7:** importación y registro de medios.
 - **Bloque 8:** cola persistente y Worker Threads.
 - **Bloque 9:** integración de FFmpeg y FFprobe.
-- **Bloque 10:** proxies, miniaturas, formas de onda y caché multimedia.
+- **Bloque 10:** proxies, miniaturas, formas de onda y caché.
+- **Bloque 11:** análisis de audio y detección de silencios.
+- **Bloque 12:** corte y reducción automática de silencios.
 
-La aplicación ya analiza medios con FFprobe y genera archivos optimizados con FFmpeg sin modificar los originales. Los derivados se guardan bajo `userData`, se registran en SQLite y se muestran mediante un protocolo interno validado.
+La aplicación puede analizar videos y audios, identificar pausas mediante FFmpeg y producir una versión nueva con los silencios acortados o eliminados. Los originales nunca se modifican.
 
 ## Requisitos
 
@@ -65,8 +67,6 @@ $env:EDITAR_FFPROBE_PATH = "C:\ffmpeg\bin\ffprobe.exe"
 npm run dev
 ```
 
-Los binarios grandes no están versionados todavía. El instalador final deberá incorporar versiones verificadas y compatibles con su licencia.
-
 ## Desarrollo
 
 ```powershell
@@ -79,25 +79,24 @@ npm run dev
 npm run verify
 ```
 
+Pruebas específicas de los Bloques 11 y 12:
+
+```powershell
+npm run test:audio
+```
+
 La verificación incluye:
 
 1. Typecheck del renderer y Electron.
 2. Compilación de React, preload, proceso principal y Workers.
 3. Pruebas de seguridad, IPC, navegación y dominio.
-4. Pruebas de SQLite, proyectos e importación.
-5. Pruebas de cola, cancelación, reintentos y recuperación.
-6. Pruebas de FFprobe y resolución de motores.
-7. Pruebas de operaciones y rutas de derivados.
-8. Prueba completa de cola → Worker → FFmpeg simulado → archivo → SQLite.
-9. Reutilización de caché y ausencia de snapshots técnicos.
-10. Reconciliación, eliminación de temporales, huérfanos y limpieza completa.
-
-Pruebas específicas:
-
-```powershell
-npm run test:engines
-npm run test:cache
-```
+4. Pruebas de SQLite, proyectos, importación y caché.
+5. Parser de eventos `silence_start` y `silence_end`.
+6. Métricas de silencio, segmentos superpuestos y proporciones.
+7. Planes de acortado y eliminación con márgenes de seguridad.
+8. Ejecución real de Worker Thread con FFmpeg simulado.
+9. Persistencia de análisis y versión reducida en SQLite.
+10. Archivos temporales, reemplazo atómico, reutilización y snapshots.
 
 ## Ejecución compilada
 
@@ -105,59 +104,124 @@ npm run test:cache
 npm start
 ```
 
-## Derivados multimedia
+## Análisis acústico
 
-Después de un análisis correcto, el sistema planifica automáticamente:
+Después de que FFprobe confirma que el recurso contiene audio, la aplicación puede ejecutar `silencedetect`.
 
-| Medio | Derivados |
-|---|---|
-| Video con audio | Proxy, miniatura y forma de onda |
-| Video sin audio | Proxy y miniatura |
-| Audio | Forma de onda |
-| Imagen | Miniatura |
+Configuración predeterminada:
 
-### Proxy
+```text
+Umbral: -35 dB
+Duración mínima: 500 ms
+```
 
-- MP4.
-- H.264 mediante `libx264`.
-- Escala máxima de 1280 × 720.
-- Relación de aspecto conservada.
-- Audio AAC a 128 kbps cuando existe.
-- `faststart` para lectura rápida.
+El análisis registra:
 
-### Miniatura
+- fecha de análisis;
+- clave SHA-256 de la configuración y el original;
+- duración total;
+- umbral;
+- duración mínima;
+- segmentos de silencio;
+- tiempo silencioso;
+- tiempo audible;
+- porcentaje de silencio.
 
-- JPG.
-- Escala máxima de 640 × 360.
-- En video se toma aproximadamente el 10 % de la duración, con máximo de cinco segundos.
-- En imagen se utiliza el primer cuadro disponible.
+Los segmentos superpuestos se fusionan antes de calcular las métricas. El análisis anterior se conserva hasta que una nueva ejecución termine correctamente.
 
-### Forma de onda
+## Modos de reducción
 
-- PNG de 1200 × 240.
-- Audio convertido a mono para visualización.
-- Generada con `showwavespic`.
+### Acortar silencios
 
-## Flujo de procesamiento
+Conserva por defecto hasta 300 ms de cada pausa detectada, además de respetar márgenes de seguridad alrededor del audio audible.
+
+### Eliminar silencios
+
+Retira la mayor parte de cada pausa, pero conserva por defecto 80 ms en cada borde para reducir cortes bruscos de palabras o respiraciones.
+
+Los dos modos producen una versión nueva. El original continúa siendo la fuente principal del proyecto.
+
+## Plan de corte
+
+Antes de ejecutar FFmpeg, el dominio genera un plan validado con:
+
+- rangos originales que deben conservarse;
+- duración original;
+- duración esperada de salida;
+- duración eliminada;
+- silencio retenido;
+- modo y márgenes aplicados;
+- clave del análisis acústico utilizado.
+
+Controles aplicados:
+
+- no puede eliminarse todo el contenido;
+- máximo de 500 rangos conservados;
+- tiempos enteros en microsegundos;
+- los rangos deben estar dentro de la duración original;
+- la duración calculada debe coincidir con la suma de los rangos.
+
+## Render de la versión reducida
+
+FFmpeg utiliza filtros por cada rango conservado:
+
+```text
+Video: trim + atrim + setpts + asetpts + concat
+Audio: atrim + asetpts + concat
+```
+
+Salida para video:
+
+- MP4;
+- H.264 mediante `libx264`;
+- audio AAC;
+- `faststart`;
+- píxeles `yuv420p`.
+
+Salida para audio:
+
+- M4A;
+- audio AAC a 192 kbps.
+
+## Flujo completo
 
 ```text
 Importación
-└── probe-media
-    └── metadatos FFprobe
-        ├── generate-proxy
-        ├── generate-thumbnails
-        └── generate-waveform
-            └── archivo parcial
-                └── validación
-                    └── reemplazo atómico
-                        └── SQLite
+└── FFprobe
+    ├── derivados de caché
+    └── detect-silence
+        └── AudioAnalysis en SQLite
+            └── reduce-silence
+                ├── plan validado
+                ├── filter script temporal
+                ├── salida parcial
+                ├── validación
+                ├── rename atómico
+                └── derivado silence-reduced en SQLite
 ```
 
-Los trabajos derivados dependen del análisis técnico cuando se crean automáticamente. También pueden solicitarse desde el Editor para recursos analizados que todavía no tienen todos sus archivos optimizados.
+## Worker dedicado de audio
 
-## Caché multimedia
+Los trabajos:
 
-La caché vive dentro de:
+- `detect-silence`;
+- `reduce-silence`;
+
+se ejecutan en `audio-background-worker.ts`, separado del Worker general de FFprobe, proxies y miniaturas.
+
+El Worker dedicado:
+
+- ejecuta FFmpeg sin shell;
+- reporta progreso;
+- limita la salida capturada;
+- aplica tiempo máximo;
+- responde a cancelación;
+- termina el proceso hijo;
+- elimina temporales y scripts auxiliares.
+
+## Caché y seguridad
+
+La versión reducida vive dentro de:
 
 ```text
 <userData>/cache/media
@@ -165,103 +229,92 @@ La caché vive dentro de:
 
 Características:
 
-- nombres deterministas derivados de SHA-256;
-- carpetas segmentadas por proyecto y medio;
-- claves dependientes del original, metadatos, versión del generador y versión de FFmpeg;
-- reutilización de archivos válidos;
-- archivos parciales mientras FFmpeg trabaja;
-- reemplazo final mediante `rename`;
-- reconciliación al iniciar;
-- eliminación de temporales y huérfanos;
-- limpieza manual desde Ajustes;
-- bloqueo de limpieza cuando existen trabajos de caché activos.
+- nombre determinista basado en SHA-256;
+- `.mp4` para video y `.m4a` para audio;
+- escritura a archivo `.partial-*`;
+- filtro temporal `.aux-*`;
+- validación de ruta administrada;
+- eliminación de temporales al iniciar;
+- bloqueo de limpieza mientras exista un trabajo de reducción activo.
 
-Limpiar la caché no elimina:
-
-- archivos originales;
-- proyectos;
-- pistas o clips;
-- metadatos de FFprobe;
-- respaldos.
-
-## Protocolo interno
-
-Las previsualizaciones se sirven mediante:
+La interfaz accede al resultado mediante:
 
 ```text
 editar-cache://derivative/<derivativeId>
 ```
 
-El renderer solo conoce el identificador. El proceso principal:
+React no recibe rutas físicas, comandos de FFmpeg ni filtros complejos.
 
-1. valida el ID;
-2. busca el derivado en SQLite;
-3. confirma que la ruta pertenece a la caché;
-4. comprueba que el archivo existe;
-5. sirve el contenido.
+## Persistencia
 
-React no recibe rutas físicas ni acceso general al sistema de archivos.
+`MediaAsset` puede contener:
 
-## Cola de trabajos
+```text
+audioAnalysis
+silenceReduction
+derivatives[]
+```
 
-Ya tienen ejecución real:
+El plan se guarda junto con el derivado `silence-reduced`. Si el análisis técnico cambia, se eliminan el análisis acústico, el plan y la versión reducida obsoleta.
+
+No se generan snapshots por:
+
+- progreso;
+- detección de silencios;
+- reducción de silencios;
+- reemplazo de un derivado;
+- reintentos.
+
+## Interfaz
+
+### Editor
+
+Cada medio con audio puede mostrar:
+
+- número de silencios;
+- duración silenciosa;
+- porcentaje del audio;
+- duración reducida;
+- botón `Analizar audio` o `Reanalizar audio`;
+- botón `Acortar`;
+- botón `Eliminar`;
+- indicador `Sin silencios ✓` cuando existe una versión procesada.
+
+### Centro de trabajos
+
+Muestra:
+
+- Detectar silencios;
+- Reducir silencios;
+- progreso;
+- pausas;
+- cancelación;
+- reintentos;
+- errores controlados.
+
+## Trabajos con ejecución real
 
 - `diagnostic-worker`;
 - `probe-media`;
 - `generate-proxy`;
 - `generate-thumbnails`;
-- `generate-waveform`.
+- `generate-waveform`;
+- `detect-silence`;
+- `reduce-silence`.
 
-Cada trabajo mantiene prioridad, progreso, intentos, cancelación, errores y recuperación después de una interrupción.
-
-## Seguridad
+## Principios de seguridad
 
 - Los originales nunca se modifican.
-- FFmpeg y FFprobe se ejecutan con `shell: false`.
-- El renderer solo envía identificadores tipados.
-- Las rutas y comandos se resuelven en el proceso principal.
-- Toda salida debe permanecer dentro de la caché administrada.
-- Se rechaza traversal y cualquier ruta externa.
-- Los archivos se validan antes de registrarse.
+- El renderer solo envía IDs y parámetros limitados.
+- Las rutas se recuperan desde SQLite.
+- Los comandos se resuelven en el proceso principal.
+- FFmpeg se ejecuta con `shell: false`.
+- Los filtros se generan internamente.
+- Todo archivo debe permanecer dentro de la caché.
 - Un resultado no persistido impide completar el trabajo.
-- La limpieza no se ejecuta durante trabajos activos.
-
-## Estructura actual
-
-```text
-Editar/
-├── apps/desktop/
-│   ├── main/
-│   │   ├── database/
-│   │   ├── ipc/
-│   │   ├── jobs/
-│   │   ├── media/
-│   │   ├── projects/
-│   │   └── security/
-│   ├── preload/
-│   ├── renderer/src/
-│   │   ├── app/
-│   │   ├── components/
-│   │   └── screens/
-│   └── shared/
-│       ├── domain/
-│       └── persistence/
-├── docs/
-├── resources/bin/
-├── scripts/
-├── tests/
-└── package.json
-```
-
-## Principios del proyecto
-
-- Todo IPC debe declararse, tiparse y validarse.
-- Los procesos pesados se ejecutan fuera del renderer.
-- Los archivos técnicos son regenerables y están separados de los originales.
-- Los resultados se validan antes de persistirse.
-- Progreso, análisis y derivados no crean snapshots innecesarios.
-- Cada bloque debe compilar y superar pruebas antes de fusionarse.
+- El análisis anterior se conserva ante un fallo.
+- La salida anterior se conserva hasta validar su reemplazo.
 
 ## Siguiente bloque
 
-**Bloque 11 — Análisis de audio y detección de silencios.**
+**Bloque 13 — Línea de tiempo y edición funcional de clips.**
