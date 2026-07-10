@@ -5,7 +5,7 @@
 # Función o funciones:
 # - Verificar automáticamente cada cambio enviado a main.
 # - Instalar dependencias y comprobar cada etapa por separado.
-# - Identificar con precisión errores de TypeScript, Vite o Electron.
+# - Conservar diagnósticos completos cuando falle TypeScript.
 # =========================================================
 
 name: Verificar aplicación
@@ -45,7 +45,28 @@ jobs:
         run: npm run clean
 
       - name: Verificar TypeScript del renderer
-        run: npx tsc -p tsconfig.renderer.json --noEmit
+        id: renderer_typecheck
+        shell: bash
+        run: |
+          set +e
+          npx tsc -p tsconfig.renderer.json --noEmit > renderer-typecheck.log 2>&1
+          status=$?
+          cat renderer-typecheck.log
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Subir diagnóstico del renderer
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: renderer-typecheck
+          path: renderer-typecheck.log
+          if-no-files-found: error
+          retention-days: 3
+
+      - name: Detener si falló el renderer
+        if: steps.renderer_typecheck.outputs.status != '0'
+        run: exit 1
 
       - name: Verificar TypeScript de Electron
         run: npx tsc -p tsconfig.electron.json --noEmit
