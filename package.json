@@ -5,6 +5,7 @@
   "description": "Editor modular de video de escritorio preparado para automatización, efectos y crecimiento futuro.",
   "main": "dist-electron/main/main.js",
   "type": "module",
+  "packageManager": "npm@10.9.2",
   "scripts": {
     "dev": "concurrently -k -n RENDERER,ELECTRON -c auto \"vite --host 127.0.0.1\" \"npm run dev:electron\"",
     "dev:electron": "wait-on tcp:5173 && cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:5173 npm run build:electron && electron .",
@@ -21,7 +22,6 @@
     "npm": ">=10.0.0"
   },
   "dependencies": {
-    "@vitejs/plugin-react": "^5.0.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"
   },
@@ -29,6 +29,7 @@
     "@types/node": "^24.0.0",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "^5.0.0",
     "concurrently": "^9.2.1",
     "cross-env": "^10.1.0",
     "electron": "^41.2.1",
