@@ -17,6 +17,7 @@
     "test:audio": "node --test tests/audio-analysis-domain.test.mjs tests/silence-detect-parser.test.mjs tests/audio-processing.test.mjs",
     "test:cache": "node --test tests/media-derivative-operations.test.mjs tests/media-cache-paths.test.mjs tests/media-derivatives.test.mjs",
     "test:database": "node --test tests/database.test.mjs",
+    "test:effects": "node --test tests/clip-effects-domain.test.mjs tests/clip-properties.test.mjs",
     "test:engines": "node --test tests/ffmpeg-binary-service.test.mjs tests/ffprobe-parser.test.mjs tests/media-analysis.test.mjs",
     "test:ipc": "node --test tests/ipc-validation.test.mjs",
     "test:jobs": "node --test tests/job-queue.test.mjs",
