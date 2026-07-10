@@ -5,13 +5,14 @@ Ruta o ubicación: /apps/desktop/shared/ipc-contracts.ts
 Función o funciones:
 - Definir los canales IPC permitidos por la aplicación.
 - Compartir contratos tipados entre main, preload y renderer.
-- Estandarizar respuestas exitosas y errores controlados.
+- Incorporar edición funcional de clips, pistas y textos.
 ========================================================= */
 
 import type { DatabaseBridge } from "./database-contracts.js";
 import type { JobQueueBridge } from "./job-queue-contracts.js";
 import type { MediaImportBridge } from "./media-import-contracts.js";
 import type { ProjectBridge } from "./project-management-contracts.js";
+import type { TimelineEditingBridge } from "./timeline-editing-contracts.js";
 
 const IPC_CHANNELS = Object.freeze({
   systemGetRuntimeInfo: "system:get-runtime-info",
@@ -26,6 +27,14 @@ const IPC_CHANNELS = Object.freeze({
   projectsDuplicate: "projects:duplicate",
   projectsSetStatus: "projects:set-status",
   projectsDelete: "projects:delete",
+  timelineAddMediaClip: "timeline:add-media-clip",
+  timelineMoveClip: "timeline:move-clip",
+  timelineTrimClip: "timeline:trim-clip",
+  timelineSplitClip: "timeline:split-clip",
+  timelineDeleteClip: "timeline:delete-clip",
+  timelineUpdateTrackState: "timeline:update-track-state",
+  timelineAddTextClip: "timeline:add-text-clip",
+  timelineUpdateTextClip: "timeline:update-text-clip",
   mediaChooseAndImport: "media:choose-and-import",
   mediaGetEngineStatus: "media:get-engine-status",
   mediaAnalyze: "media:analyze",
@@ -101,6 +110,7 @@ interface EditarBridge {
   readonly system: SystemBridge;
   readonly database: DatabaseBridge;
   readonly projects: ProjectBridge;
+  readonly timeline: TimelineEditingBridge;
   readonly media: MediaImportBridge;
   readonly jobs: JobQueueBridge;
 }
