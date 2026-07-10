@@ -5,7 +5,7 @@
 # Función o funciones:
 # - Verificar automáticamente cada cambio enviado a main.
 # - Instalar dependencias y comprobar cada etapa por separado.
-# - Detectar con claridad errores de TypeScript o compilación.
+# - Ejecutar pruebas del contrato y validación IPC.
 # =========================================================
 
 name: Verificar aplicación
@@ -23,7 +23,7 @@ permissions:
 
 jobs:
   verify:
-    name: Typecheck y build
+    name: Typecheck, build y pruebas
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -55,3 +55,6 @@ jobs:
 
       - name: Compilar Electron
         run: npm run build:electron
+
+      - name: Probar validación IPC
+        run: npm run test:ipc
