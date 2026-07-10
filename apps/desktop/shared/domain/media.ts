@@ -4,10 +4,18 @@ Ruta o ubicación: /apps/desktop/shared/domain/media.ts
 
 Función o funciones:
 - Definir videos, audios e imágenes importadas.
-- Separar el registro inicial del análisis técnico con FFprobe.
-- Mantener archivo original, metadatos y derivados sin modificar la fuente.
+- Separar análisis técnico, análisis acústico y derivados.
+- Mantener archivo original y resultados sin modificar la fuente.
 ========================================================= */
 
+import type {
+  AudioAnalysis,
+  SilenceReductionPlan,
+} from "./audio-analysis.js";
+import {
+  validateAudioAnalysis,
+  validateSilenceReductionPlan,
+} from "./audio-analysis.js";
 import { assertDomain } from "./domain-error.js";
 import {
   createEntityId,
@@ -78,7 +86,12 @@ type MediaMetadata =
 
 interface MediaDerivative {
   readonly id: EntityId<"derivative">;
-  readonly type: "proxy" | "thumbnail" | "waveform" | "audio-extract";
+  readonly type:
+    | "proxy"
+    | "thumbnail"
+    | "waveform"
+    | "audio-extract"
+    | "silence-reduced";
   readonly path: string;
   readonly cacheKey: string;
   readonly createdAt: IsoDateTime;
@@ -98,6 +111,8 @@ interface MediaAsset {
   readonly availability: MediaAvailability;
   readonly inspection: MediaInspection;
   readonly metadata?: MediaMetadata;
+  readonly audioAnalysis?: AudioAnalysis;
+  readonly silenceReduction?: SilenceReductionPlan;
   readonly derivatives: readonly MediaDerivative[];
   readonly importedAt: IsoDateTime;
 }
@@ -116,6 +131,8 @@ interface CreateMediaAssetInput {
   readonly availability?: MediaAvailability;
   readonly inspection?: MediaInspectionInput;
   readonly metadata?: MediaMetadata;
+  readonly audioAnalysis?: AudioAnalysis;
+  readonly silenceReduction?: SilenceReductionPlan;
   readonly derivatives?: readonly MediaDerivative[];
   readonly importedAt?: Date | string;
 }
@@ -319,6 +336,45 @@ function createMediaAsset(input: CreateMediaAssetInput): MediaAsset {
     );
   }
 
+  const audioAnalysis = input.audioAnalysis
+    ? validateAudioAnalysis(input.audioAnalysis)
+    : undefined;
+  const silenceReduction = input.silenceReduction
+    ? validateSilenceReductionPlan(input.silenceReduction)
+    : undefined;
+
+  if (audioAnalysis) {
+    assertDomain(
+      metadata !== undefined &&
+        metadata.kind !== "image" &&
+        (metadata.kind === "audio" || metadata.audio !== undefined),
+      "INVALID_RELATION",
+      "audioAnalysis",
+      "Solo los recursos con audio pueden contener un análisis acústico.",
+    );
+    assertDomain(
+      audioAnalysis.durationUs === metadata.durationUs,
+      "INVALID_RELATION",
+      "audioAnalysis.durationUs",
+      "La duración del análisis acústico no coincide con el medio.",
+    );
+  }
+
+  if (silenceReduction) {
+    assertDomain(
+      audioAnalysis !== undefined,
+      "INVALID_RELATION",
+      "silenceReduction",
+      "Una reducción de silencios requiere un análisis acústico.",
+    );
+    assertDomain(
+      silenceReduction.analysisSourceKey === audioAnalysis.sourceKey,
+      "INVALID_RELATION",
+      "silenceReduction.analysisSourceKey",
+      "El plan de reducción no corresponde al análisis acústico actual.",
+    );
+  }
+
   const inspection = validateInspection(
     input.inspection ?? {
       status: metadata ? "ready" : "pending",
@@ -360,6 +416,8 @@ function createMediaAsset(input: CreateMediaAssetInput): MediaAsset {
     availability: input.availability ?? "online",
     inspection,
     metadata,
+    audioAnalysis,
+    silenceReduction,
     derivatives: Object.freeze(
       (input.derivatives ?? []).map(validateDerivative),
     ),
@@ -387,7 +445,9 @@ function updateMediaInspection(
     availability: input.availability ?? asset.availability,
     inspection: input.inspection,
     metadata,
-    derivatives: asset.derivatives,
+    derivatives: asset.derivatives.filter(
+      (derivative) => derivative.type !== "silence-reduced",
+    ),
     importedAt: asset.importedAt,
   });
 }
@@ -405,6 +465,7 @@ export {
   getMediaDuration,
   updateMediaInspection,
   validateAudioStream,
+  validateDerivative,
   validateFrameRate,
   validateInspection,
   validateMetadata,

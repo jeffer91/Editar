@@ -27,6 +27,7 @@ const CACHE_JOB_KINDS: readonly JobKind[] = Object.freeze([
   "generate-proxy",
   "generate-waveform",
   "generate-thumbnails",
+  "reduce-silence",
 ]);
 const BLOCKING_STATUSES: readonly JobStatus[] = Object.freeze([
   "pending",
@@ -121,7 +122,7 @@ class MediaCacheService {
 
     if (cacheJobs.length > 0) {
       throw new MediaCacheConflictError(
-        "Cancela o finaliza los trabajos de proxy, miniatura y forma de onda antes de limpiar la caché.",
+        "Cancela o finaliza los trabajos de proxy, miniatura, forma de onda y reducción de silencios antes de limpiar la caché.",
       );
     }
 

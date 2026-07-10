@@ -3,9 +3,9 @@ Nombre completo: worker-thread-job-executor.ts
 Ruta o ubicación: /apps/desktop/main/jobs/worker-thread-job-executor.ts
 
 Función o funciones:
-- Ejecutar diagnósticos, FFprobe y FFmpeg dentro de Worker Threads.
+- Ejecutar trabajos multimedia dentro de Worker Threads especializados.
+- Enrutar análisis y reducción de silencios al Worker de audio.
 - Traducir progreso, resultados, errores y cancelaciones.
-- Solicitar una detención cooperativa antes de terminar el Worker.
 ========================================================= */
 
 import { Worker } from "node:worker_threads";
@@ -30,12 +30,18 @@ type WorkerMessage =
   | { readonly type: "failed"; readonly error: JobErrorInfo }
   | { readonly type: "aborted" };
 
+const AUDIO_JOB_KINDS: readonly JobKind[] = Object.freeze([
+  "detect-silence",
+  "reduce-silence",
+]);
+
 const SUPPORTED_JOB_KINDS: readonly JobKind[] = Object.freeze([
   "diagnostic-worker",
   "probe-media",
   "generate-proxy",
   "generate-waveform",
   "generate-thumbnails",
+  ...AUDIO_JOB_KINDS,
 ]);
 
 class JobWorkerError extends Error {
@@ -50,6 +56,12 @@ class JobExecutionAbortedError extends Error {
     super("La ejecución fue detenida.");
     this.name = "JobExecutionAbortedError";
   }
+}
+
+function workerUrlForKind(kind: JobKind): URL {
+  return AUDIO_JOB_KINDS.includes(kind)
+    ? new URL("./audio-background-worker.js", import.meta.url)
+    : new URL("./background-worker.js", import.meta.url);
 }
 
 class WorkerThreadJobExecutor implements JobExecutor {
@@ -84,7 +96,7 @@ class WorkerThreadJobExecutor implements JobExecutor {
     }
 
     return new Promise<JobExecutionResult>((resolve, reject) => {
-      const worker = new Worker(new URL("./background-worker.js", import.meta.url), {
+      const worker = new Worker(workerUrlForKind(job.kind), {
         workerData: { job },
       });
       let settled = false;
@@ -203,8 +215,10 @@ class WorkerThreadJobExecutor implements JobExecutor {
 }
 
 export {
+  AUDIO_JOB_KINDS,
   JobExecutionAbortedError,
   JobWorkerError,
   SUPPORTED_JOB_KINDS,
   WorkerThreadJobExecutor,
+  workerUrlForKind,
 };

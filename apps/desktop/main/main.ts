@@ -4,7 +4,7 @@ Ruta o ubicación: /apps/desktop/main/main.ts
 
 Función o funciones:
 - Iniciar el proceso principal de Electron.
-- Integrar SQLite, motores, derivados y caché multimedia.
+- Integrar SQLite, motores, audio, derivados y caché multimedia.
 - Registrar IPC, protocolo interno y cierre ordenado de Workers.
 ========================================================= */
 
@@ -20,11 +20,13 @@ import { registerJobQueueIpc } from "./ipc/register-job-queue-ipc.js";
 import { registerMediaIpc } from "./ipc/register-media-ipc.js";
 import { registerProjectIpc } from "./ipc/register-project-ipc.js";
 import { registerSystemIpc } from "./ipc/register-system-ipc.js";
+import { AudioAnalysisJobHandler } from "./jobs/audio-analysis-job-handler.js";
 import { CompositeJobResultHandler } from "./jobs/composite-job-result-handler.js";
 import { JobQueueService } from "./jobs/job-queue-service.js";
 import { MediaDerivativeJobHandler } from "./jobs/media-derivative-job-handler.js";
 import { MediaProbeJobHandler } from "./jobs/media-probe-job-handler.js";
 import { WorkerThreadJobExecutor } from "./jobs/worker-thread-job-executor.js";
+import { AudioAnalysisService } from "./media/audio-analysis-service.js";
 import { FfmpegBinaryService } from "./media/ffmpeg-binary-service.js";
 import { MediaAnalysisService } from "./media/media-analysis-service.js";
 import {
@@ -35,6 +37,7 @@ import { MediaCachePaths } from "./media/media-cache-paths.js";
 import { MediaCacheService } from "./media/media-cache-service.js";
 import { MediaDerivativeService } from "./media/media-derivative-service.js";
 import { MediaImportService } from "./media/media-import-service.js";
+import { SilenceReductionService } from "./media/silence-reduction-service.js";
 import { ProjectManagementService } from "./projects/project-management-service.js";
 import { applyWindowSecurity } from "./security/window-security.js";
 import type { TrustedSourceOptions } from "./security/trusted-sources.js";
@@ -163,8 +166,29 @@ app
       queue: jobQueue,
       paths: cachePaths,
     });
+    const audioAnalysisService = new AudioAnalysisService({
+      projects: service.projects,
+      media: service.media,
+      jobs: service.jobs,
+      engines,
+      queue: jobQueue,
+    });
+    const silenceReductionService = new SilenceReductionService({
+      projects: service.projects,
+      media: service.media,
+      jobs: service.jobs,
+      engines,
+      queue: jobQueue,
+      paths: cachePaths,
+    });
+
     resultHandler.add(
-      new MediaProbeJobHandler(service.media, mediaDerivativeService),
+      new MediaProbeJobHandler(
+        service.media,
+        mediaDerivativeService,
+        audioAnalysisService,
+      ),
+      new AudioAnalysisJobHandler(service.media),
       new MediaDerivativeJobHandler(service.media, cachePaths),
     );
 
@@ -204,6 +228,8 @@ app
       trustedSources,
       mediaImportService,
       mediaAnalysisService,
+      audioAnalysisService,
+      silenceReductionService,
       mediaDerivativeService,
       mediaCacheService,
     });

@@ -5,11 +5,15 @@ Ruta o ubicación: /apps/desktop/preload/preload.cts
 Función o funciones:
 - Exponer una API limitada y tipada al renderer.
 - Enviar solicitudes únicamente por canales IPC autorizados.
-- Proporcionar operaciones seguras del sistema, medios, caché y trabajos.
+- Proporcionar operaciones seguras de audio, caché y trabajos.
 ========================================================= */
 
 const { contextBridge, ipcRenderer } = require("electron") as typeof import("electron");
 
+type AnalyzeAudioInput = import("../shared/audio-processing-contracts.js").AnalyzeAudioInput;
+type AudioAnalysisRequestResult = import("../shared/audio-processing-contracts.js").AudioAnalysisRequestResult;
+type ReduceSilenceInput = import("../shared/audio-processing-contracts.js").ReduceSilenceInput;
+type SilenceReductionRequestResult = import("../shared/audio-processing-contracts.js").SilenceReductionRequestResult;
 type DatabaseBackupInfo = import("../shared/database-contracts.js").DatabaseBackupInfo;
 type DatabaseStatus = import("../shared/database-contracts.js").DatabaseStatus;
 type ProjectDocument = import("../shared/domain/index.js").ProjectDocument;
@@ -55,6 +59,8 @@ const IPC_CHANNELS = Object.freeze({
   mediaChooseAndImport: "media:choose-and-import",
   mediaGetEngineStatus: "media:get-engine-status",
   mediaAnalyze: "media:analyze",
+  mediaAnalyzeAudio: "media:analyze-audio",
+  mediaReduceSilence: "media:reduce-silence",
   mediaGenerateDerivatives: "media:generate-derivatives",
   mediaGetCacheStatus: "media:get-cache-status",
   mediaClearCache: "media:clear-cache",
@@ -138,6 +144,16 @@ const bridge: EditarBridge = Object.freeze({
     analyze: (input: AnalyzeMediaInput) =>
       invoke<MediaAnalysisRequestResult, AnalyzeMediaInput>(
         IPC_CHANNELS.mediaAnalyze,
+        input,
+      ),
+    analyzeAudio: (input: AnalyzeAudioInput) =>
+      invoke<AudioAnalysisRequestResult, AnalyzeAudioInput>(
+        IPC_CHANNELS.mediaAnalyzeAudio,
+        input,
+      ),
+    reduceSilence: (input: ReduceSilenceInput) =>
+      invoke<SilenceReductionRequestResult, ReduceSilenceInput>(
+        IPC_CHANNELS.mediaReduceSilence,
         input,
       ),
     generateDerivatives: (input: GenerateMediaDerivativesInput) =>

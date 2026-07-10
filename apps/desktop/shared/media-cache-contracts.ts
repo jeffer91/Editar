@@ -3,7 +3,7 @@ Nombre completo: media-cache-contracts.ts
 Ruta o ubicación: /apps/desktop/shared/media-cache-contracts.ts
 
 Función o funciones:
-- Definir generación de proxies, miniaturas y formas de onda.
+- Definir derivados estándar y reducción de silencios.
 - Exponer diagnóstico y limpieza controlada de la caché.
 - Compartir contratos seguros entre main, preload y renderer.
 ========================================================= */
@@ -14,9 +14,14 @@ import type {
 } from "./domain/index.js";
 import type { IpcResult } from "./ipc-contracts.js";
 
-type GeneratedDerivativeType = Extract<
+type ManagedDerivativeType = Extract<
   MediaDerivative["type"],
-  "proxy" | "thumbnail" | "waveform"
+  "proxy" | "thumbnail" | "waveform" | "silence-reduced"
+>;
+
+type GeneratedDerivativeType = Exclude<
+  ManagedDerivativeType,
+  "silence-reduced"
 >;
 
 interface GenerateMediaDerivativesInput {
@@ -67,6 +72,7 @@ export {
   createDerivativeUrl,
   type GeneratedDerivativeType,
   type GenerateMediaDerivativesInput,
+  type ManagedDerivativeType,
   type MediaCacheBridge,
   type MediaCacheClearResult,
   type MediaCacheStatus,

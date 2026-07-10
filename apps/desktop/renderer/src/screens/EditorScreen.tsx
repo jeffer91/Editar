@@ -4,8 +4,8 @@ Ruta o ubicación: /apps/desktop/renderer/src/screens/EditorScreen.tsx
 
 Función o funciones:
 - Mostrar la estructura visual del editor.
-- Importar, analizar, optimizar y refrescar medios del proyecto.
-- Guiar al usuario a Proyectos cuando no existe uno abierto.
+- Importar, analizar, optimizar y reducir silencios en medios.
+- Refrescar resultados persistidos mientras existen trabajos activos.
 ========================================================= */
 
 import { useEffect } from "react";
@@ -13,8 +13,10 @@ import type {
   EntityId,
   JobKind,
   ProjectDocument,
+  SilenceReductionMode,
   TrackKind,
 } from "../../../shared/domain";
+import { useAudioProcessing } from "../app/use-audio-processing";
 import { useMediaAnalysis } from "../app/use-media-analysis";
 import { useMediaCache } from "../app/use-media-cache";
 import { useMediaImport } from "../app/use-media-import";
@@ -35,10 +37,12 @@ const trackLabels: Readonly<Record<TrackKind, string>> = Object.freeze({
   adjustment: "FX",
 });
 
-const DERIVATIVE_JOB_KINDS: readonly JobKind[] = Object.freeze([
+const ACTIVE_MEDIA_JOB_KINDS: readonly JobKind[] = Object.freeze([
   "generate-proxy",
   "generate-waveform",
   "generate-thumbnails",
+  "detect-silence",
+  "reduce-silence",
 ]);
 
 function EditorScreen({
@@ -49,6 +53,7 @@ function EditorScreen({
   const mediaImport = useMediaImport();
   const mediaAnalysis = useMediaAnalysis();
   const mediaCache = useMediaCache(false);
+  const audioProcessing = useAudioProcessing();
   const pendingMediaCount =
     project?.media.filter((asset) => asset.inspection.status === "pending").length ?? 0;
 
@@ -61,16 +66,16 @@ function EditorScreen({
 
     const refreshWhenNeeded = async (): Promise<void> => {
       const queueResult = await window.editar.jobs.getSnapshot();
-      const hasActiveDerivativeJobs =
+      const hasActiveMediaJobs =
         queueResult.ok &&
         queueResult.data.items.some(
           (item) =>
             item.job.projectId === project.project.id &&
-            DERIVATIVE_JOB_KINDS.includes(item.job.kind) &&
+            ACTIVE_MEDIA_JOB_KINDS.includes(item.job.kind) &&
             ["pending", "preparing", "running", "paused"].includes(item.job.status),
         );
 
-      if (pendingMediaCount === 0 && !hasActiveDerivativeJobs) {
+      if (pendingMediaCount === 0 && !hasActiveMediaJobs) {
         return;
       }
 
@@ -124,6 +129,22 @@ function EditorScreen({
     (total, asset) => total + asset.derivatives.length,
     0,
   );
+  const audioAnalysisCount = project.media.filter(
+    (asset) => asset.audioAnalysis,
+  ).length;
+  const reducedCount = project.media.filter(
+    (asset) => asset.silenceReduction,
+  ).length;
+
+  const refreshProject = async (): Promise<void> => {
+    const refreshed = await window.editar.projects.open({
+      projectId: project.project.id,
+    });
+
+    if (refreshed.ok) {
+      onProjectChange(refreshed.data);
+    }
+  };
 
   const importMedia = async (): Promise<void> => {
     const updatedProject = await mediaImport.chooseAndImport(project.project.id);
@@ -136,32 +157,39 @@ function EditorScreen({
   const analyzeMedia = async (mediaId: EntityId<"media">): Promise<void> => {
     const accepted = await mediaAnalysis.analyze(project.project.id, mediaId);
 
-    if (!accepted) {
-      return;
-    }
-
-    const refreshed = await window.editar.projects.open({
-      projectId: project.project.id,
-    });
-
-    if (refreshed.ok) {
-      onProjectChange(refreshed.data);
+    if (accepted) {
+      await refreshProject();
     }
   };
 
   const optimizeMedia = async (mediaId: EntityId<"media">): Promise<void> => {
     const result = await mediaCache.generate(project.project.id, mediaId);
 
-    if (!result) {
-      return;
+    if (result) {
+      await refreshProject();
     }
+  };
 
-    const refreshed = await window.editar.projects.open({
-      projectId: project.project.id,
-    });
+  const analyzeAudio = async (mediaId: EntityId<"media">): Promise<void> => {
+    const result = await audioProcessing.analyze(project.project.id, mediaId);
 
-    if (refreshed.ok) {
-      onProjectChange(refreshed.data);
+    if (result) {
+      await refreshProject();
+    }
+  };
+
+  const reduceSilence = async (
+    mediaId: EntityId<"media">,
+    mode: SilenceReductionMode,
+  ): Promise<void> => {
+    const result = await audioProcessing.reduce(
+      project.project.id,
+      mediaId,
+      mode,
+    );
+
+    if (result) {
+      await refreshProject();
     }
   };
 
@@ -196,16 +224,23 @@ function EditorScreen({
           engineStatus={mediaAnalysis.engine.status}
           analyzingMediaId={mediaAnalysis.activeMediaId}
           optimizingMediaId={mediaCache.activeMediaId}
+          audioActiveMediaId={audioProcessing.activeMediaId}
+          audioOperation={audioProcessing.operation}
           analysisMessage={mediaAnalysis.message}
           analysisErrorMessage={mediaAnalysis.errorMessage || mediaAnalysis.engine.errorMessage}
           cacheMessage={mediaCache.message}
           cacheErrorMessage={mediaCache.errorMessage}
+          audioMessage={audioProcessing.message}
+          audioErrorMessage={audioProcessing.errorMessage}
           onImport={() => void importMedia()}
           onAnalyze={(mediaId) => void analyzeMedia(mediaId)}
           onOptimize={(mediaId) => void optimizeMedia(mediaId)}
+          onAnalyzeAudio={(mediaId) => void analyzeAudio(mediaId)}
+          onReduceSilence={(mediaId, mode) => void reduceSilence(mediaId, mode)}
           onClearResult={mediaImport.clearResult}
           onClearAnalysisMessages={mediaAnalysis.clearMessages}
           onClearCacheMessages={mediaCache.clearMessages}
+          onClearAudioMessages={audioProcessing.clearMessages}
         />
 
         <div className="editor-center">
@@ -327,16 +362,20 @@ function EditorScreen({
               </small>
             </div>
             <div className="property-row">
+              <span>Audio analizado</span>
+              <small>{audioAnalysisCount}</small>
+            </div>
+            <div className="property-row">
+              <span>Sin silencios</span>
+              <small>{reducedCount}</small>
+            </div>
+            <div className="property-row">
               <span>Derivados</span>
               <small>{derivativeCount}</small>
             </div>
             <div className="property-row">
               <span>Clips</span>
               <small>{project.clips.length}</small>
-            </div>
-            <div className="property-row">
-              <span>Textos</span>
-              <small>{project.textLayers.length}</small>
             </div>
           </div>
         </aside>
@@ -345,4 +384,4 @@ function EditorScreen({
   );
 }
 
-export { DERIVATIVE_JOB_KINDS, EditorScreen, type EditorScreenProps };
+export { ACTIVE_MEDIA_JOB_KINDS, EditorScreen, type EditorScreenProps };

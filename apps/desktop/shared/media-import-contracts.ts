@@ -4,10 +4,11 @@ Ruta o ubicación: /apps/desktop/shared/media-import-contracts.ts
 
 Función o funciones:
 - Definir contratos públicos para importar y analizar medios.
-- Incorporar generación y limpieza de derivados multimedia.
+- Incorporar caché, audio y reducción automática de silencios.
 - Mantener rutas y procesamiento fuera de la interfaz React.
 ========================================================= */
 
+import type { AudioProcessingBridge } from "./audio-processing-contracts.js";
 import type {
   EntityId,
   MediaAsset,
@@ -66,7 +67,7 @@ interface MediaImportResult {
   readonly summary: MediaImportSummary;
 }
 
-interface MediaImportBridge extends MediaCacheBridge {
+interface MediaImportBridge extends MediaCacheBridge, AudioProcessingBridge {
   chooseAndImport(input: ImportMediaInput): Promise<IpcResult<MediaImportResult>>;
   getEngineStatus(): Promise<IpcResult<MediaEngineStatus>>;
   analyze(input: AnalyzeMediaInput): Promise<IpcResult<MediaAnalysisRequestResult>>;

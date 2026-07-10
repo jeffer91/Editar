@@ -5,7 +5,7 @@ Ruta o ubicación: /apps/desktop/renderer/src/screens/JobsScreen.tsx
 Función o funciones:
 - Mostrar la cola global y su progreso.
 - Crear una prueba real de procesamiento en Worker Thread.
-- Supervisar análisis y generación de derivados multimedia.
+- Supervisar análisis acústico y reducción de silencios.
 ========================================================= */
 
 import { useEffect, useMemo, useState } from "react";
@@ -41,6 +41,7 @@ const kindLabels: Readonly<Record<JobKind, string>> = Object.freeze({
   "generate-thumbnails": "Generar miniatura",
   "extract-audio": "Extraer audio",
   "detect-silence": "Detectar silencios",
+  "reduce-silence": "Reducir silencios",
   "transcribe-audio": "Transcribir audio",
   "detect-scenes": "Detectar escenas",
   "render-preview": "Renderizar vista previa",
@@ -184,12 +185,12 @@ function JobsScreen({ onNavigateProjects }: JobsScreenProps): React.JSX.Element 
     <div className="screen-stack">
       <section className="screen-banner">
         <div>
-          <span className="section-label">BLOQUE 10 · PROCESAMIENTO MULTIMEDIA</span>
+          <span className="section-label">BLOQUES 11–12 · AUDIO Y SILENCIOS</span>
           <h2>Centro de trabajos</h2>
           <p>
             La cola ejecuta FFprobe y FFmpeg fuera del renderer. Aquí puedes
-            supervisar análisis, proxies, miniaturas, formas de onda, pausas,
-            cancelaciones y reintentos.
+            supervisar detección de silencios, versiones reducidas, derivados,
+            pausas, cancelaciones y reintentos.
           </p>
         </div>
         <div className="queue-health">
@@ -198,7 +199,7 @@ function JobsScreen({ onNavigateProjects }: JobsScreenProps): React.JSX.Element 
           />
           <div>
             <strong>
-              {queue.snapshot?.workerOnline ? "Worker disponible" : "Worker desconectado"}
+              {queue.snapshot?.workerOnline ? "Workers disponibles" : "Workers desconectados"}
             </strong>
             <small>Concurrencia: {queue.snapshot?.concurrency ?? 0}</small>
           </div>
@@ -220,7 +221,7 @@ function JobsScreen({ onNavigateProjects }: JobsScreenProps): React.JSX.Element 
           <h2>Verificar Worker Thread</h2>
           <p>
             Ejecuta una tarea corta con progreso real. La misma infraestructura
-            procesa actualmente FFprobe, proxies, miniaturas y formas de onda.
+            procesa FFprobe, derivados, detección y reducción de silencios.
           </p>
         </div>
         {projects.length > 0 ? (

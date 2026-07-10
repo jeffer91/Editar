@@ -1,0 +1,108 @@
+/* =========================================================
+Nombre completo: audio-processing.css
+Ruta o ubicación: /apps/desktop/renderer/src/audio-processing.css
+
+Función o funciones:
+- Estilizar resúmenes de silencios detectados.
+- Presentar controles de análisis, acortado y eliminación.
+- Diferenciar versiones procesadas dentro del panel de medios.
+========================================================= */
+
+.media-audio-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px;
+  margin-top: 7px;
+}
+
+.media-audio-summary > span {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+  padding: 5px 6px;
+  border: 1px solid #dcd9f8;
+  border-radius: 7px;
+  background: #f8f7ff;
+}
+
+.media-audio-summary strong {
+  overflow: hidden;
+  color: #4e47b9;
+  font-size: 0.54rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.media-audio-summary small {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 0.43rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.media-derivative-chip--reduced {
+  color: #19633d;
+  background: #e6f7ed;
+}
+
+.media-audio-button {
+  min-height: 26px;
+  padding: 5px 8px;
+  border: 1px solid #b9d6ef;
+  border-radius: 7px;
+  color: #175a8b;
+  background: #edf7ff;
+  font-size: 0.5rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.media-audio-button:hover:not(:disabled) {
+  border-color: #78add4;
+  background: #dff1ff;
+}
+
+.media-audio-button:disabled,
+.media-silence-actions button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.media-silence-actions {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+}
+
+.media-silence-actions button {
+  min-height: 25px;
+  padding: 4px 6px;
+  border: 1px solid #e0cba9;
+  border-radius: 7px;
+  color: #76501a;
+  background: #fff8e9;
+  font-size: 0.46rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.media-silence-actions button:last-child {
+  border-color: #e6c0bd;
+  color: #914039;
+  background: #fff0ef;
+}
+
+.media-silence-actions button:hover:not(:disabled) {
+  filter: brightness(0.97);
+}
+
+@media (max-width: 1180px) {
+  .media-audio-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .media-silence-actions {
+    flex-direction: column;
+  }
+}
