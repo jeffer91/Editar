@@ -12,7 +12,7 @@ Función o funciones:
 
 ## Estado
 
-**EN VERIFICACIÓN**
+**COMPLETADO Y VERIFICADO**
 
 ## Objetivo
 
@@ -104,6 +104,26 @@ Los respaldos:
 - se crean automáticamente una vez al día cuando existen proyectos;
 - conservan diez archivos de forma predeterminada.
 
+## Verificación realizada
+
+GitHub Actions confirmó correctamente:
+
+1. Instalación con Node.js 22.16.
+2. Typecheck del renderer.
+3. Typecheck de Electron.
+4. Compilación del renderer.
+5. Compilación de Electron.
+6. Migraciones iniciales e idempotentes.
+7. Configuración WAL y claves foráneas.
+8. Integridad rápida y completa.
+9. Guardado y reconstrucción de proyectos.
+10. Snapshots y límite de retención.
+11. Borrado en cascada.
+12. Creación de respaldos con checksum.
+13. Retención de respaldos antiguos.
+14. Cierre y reapertura sin pérdida.
+15. Pruebas anteriores de IPC, navegación y dominio.
+
 ## Criterios de aprobación
 
 - La base se crea y migra automáticamente.
@@ -140,11 +160,12 @@ Los respaldos:
 1. `/apps/desktop/shared/ipc-contracts.ts`
 2. `/apps/desktop/preload/preload.cts`
 3. `/apps/desktop/main/main.ts`
-4. `/apps/desktop/renderer/src/screens/SettingsScreen.tsx`
-5. `/apps/desktop/renderer/src/main.tsx`
-6. `/package.json`
-7. `/.github/workflows/verify.yml`
-8. `/README.md`
+4. `/apps/desktop/renderer/src/screens/HomeScreen.tsx`
+5. `/apps/desktop/renderer/src/screens/SettingsScreen.tsx`
+6. `/apps/desktop/renderer/src/main.tsx`
+7. `/package.json`
+8. `/.github/workflows/verify.yml`
+9. `/README.md`
 
 ## Próximo bloque
 
