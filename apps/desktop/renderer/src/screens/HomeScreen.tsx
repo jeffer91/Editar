@@ -5,7 +5,7 @@ Ruta o ubicación: /apps/desktop/renderer/src/screens/HomeScreen.tsx
 Función o funciones:
 - Mostrar el panel de inicio de la aplicación.
 - Presentar accesos directos hacia los módulos principales.
-- Informar el estado del dominio, medios y motores multimedia.
+- Informar el estado de medios, derivados y caché multimedia.
 ========================================================= */
 
 import { DOMAIN_SCHEMA_VERSION } from "../../../shared/domain";
@@ -31,14 +31,14 @@ const moduleCards = [
     route: "editor" as const,
     icon: "editor" as const,
     title: "Editor",
-    description: "Importa medios y consulta duración, resolución y códecs.",
-    status: "FFprobe integrado",
+    description: "Importa medios y genera proxies, miniaturas y ondas.",
+    status: "Caché integrada",
   },
   {
     route: "jobs" as const,
     icon: "jobs" as const,
     title: "Trabajos",
-    description: "Supervisa análisis, progreso, cancelaciones y reintentos.",
+    description: "Supervisa FFprobe, FFmpeg, progreso y reintentos.",
     status: "Procesamiento real",
   },
   {
@@ -52,8 +52,8 @@ const moduleCards = [
     route: "settings" as const,
     icon: "settings" as const,
     title: "Ajustes",
-    description: "SQLite, respaldos y diagnóstico de motores multimedia.",
-    status: "FFmpeg verificable",
+    description: "SQLite, motores, respaldos y limpieza de caché.",
+    status: "Diagnóstico completo",
   },
 ] as const;
 
@@ -66,12 +66,12 @@ function HomeScreen({
     <div className="screen-stack">
       <section className="dashboard-hero">
         <div className="dashboard-hero__content">
-          <span className="section-label">BLOQUE 9 · FFMPEG Y FFPROBE</span>
-          <h2>El editor ya obtiene metadatos técnicos reales</h2>
+          <span className="section-label">BLOQUE 10 · CACHÉ MULTIMEDIA</span>
+          <h2>El editor ya crea archivos optimizados sin tocar los originales</h2>
           <p>
-            FFprobe analiza videos, audios e imágenes dentro de Worker Threads.
-            La aplicación registra duración, resolución, FPS, códecs, canales y
-            frecuencia de muestreo sin modificar los archivos originales.
+            FFmpeg genera proxies de edición, miniaturas y formas de onda dentro
+            de Worker Threads. Los resultados se guardan en una caché local,
+            aparecen en el Editor y pueden eliminarse y regenerarse con seguridad.
           </p>
           <div className="dashboard-hero__actions">
             <button
@@ -87,7 +87,7 @@ function HomeScreen({
               type="button"
               onClick={() => onNavigate("settings")}
             >
-              Comprobar motores
+              Revisar caché
             </button>
           </div>
         </div>
@@ -128,8 +128,8 @@ function HomeScreen({
             <AppIcon name="video" />
           </span>
           <div>
-            <small>Análisis técnico</small>
-            <strong>FFprobe + Workers</strong>
+            <small>Procesamiento</small>
+            <strong>FFmpeg + caché</strong>
           </div>
         </article>
         <article className="metric-card">
