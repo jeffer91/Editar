@@ -3,9 +3,9 @@ Nombre completo: media-derivative-operations.ts
 Ruta o ubicación: /apps/desktop/shared/domain/media-derivative-operations.ts
 
 Función o funciones:
-- Agregar o reemplazar proxies, miniaturas y formas de onda.
+- Agregar o reemplazar archivos derivados por tipo.
 - Eliminar derivados sin modificar el archivo original.
-- Reutilizar la validación central de MediaAsset.
+- Conservar análisis acústicos y planes de reducción.
 ========================================================= */
 
 import {
@@ -32,6 +32,8 @@ function rebuildWithDerivatives(
     availability: asset.availability,
     inspection: asset.inspection,
     metadata: asset.metadata,
+    audioAnalysis: asset.audioAnalysis,
+    silenceReduction: asset.silenceReduction,
     derivatives,
     importedAt: asset.importedAt,
   });
