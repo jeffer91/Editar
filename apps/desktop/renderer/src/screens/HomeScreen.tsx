@@ -5,7 +5,7 @@ Ruta o ubicación: /apps/desktop/renderer/src/screens/HomeScreen.tsx
 Función o funciones:
 - Mostrar el panel de inicio de la aplicación.
 - Presentar accesos directos hacia los módulos principales.
-- Informar el estado del dominio, SQLite y proyectos.
+- Informar el estado del dominio, proyectos e importación multimedia.
 ========================================================= */
 
 import { DOMAIN_SCHEMA_VERSION } from "../../../shared/domain";
@@ -31,8 +31,8 @@ const moduleCards = [
     route: "editor" as const,
     icon: "editor" as const,
     title: "Editor",
-    description: "Muestra el proyecto activo, sus pistas y recursos.",
-    status: "Proyecto conectado",
+    description: "Importa videos, audios e imágenes al proyecto activo.",
+    status: "Importación activa",
   },
   {
     route: "library" as const,
@@ -59,28 +59,29 @@ function HomeScreen({
     <div className="screen-stack">
       <section className="dashboard-hero">
         <div className="dashboard-hero__content">
-          <span className="section-label">BLOQUE 6 · GESTIÓN DE PROYECTOS</span>
-          <h2>Los proyectos ya pueden administrarse de principio a fin</h2>
+          <span className="section-label">BLOQUE 7 · IMPORTACIÓN DE MEDIOS</span>
+          <h2>El editor ya registra archivos multimedia reales</h2>
           <p>
-            La aplicación permite crear proyectos por formato, buscarlos,
-            abrirlos en el editor, renombrarlos, duplicarlos, archivarlos,
-            restaurarlos y eliminarlos mediante operaciones seguras sobre SQLite.
+            Ahora puedes seleccionar varios videos, audios e imágenes. La
+            aplicación verifica extensión y firma binaria, calcula un hash
+            SHA-256, evita duplicados y guarda la referencia al original sin
+            modificarlo.
           </p>
           <div className="dashboard-hero__actions">
             <button
               className="primary-button"
               type="button"
-              onClick={() => onNavigate("projects")}
+              onClick={() => onNavigate("editor")}
             >
-              Gestionar proyectos
+              Importar medios
               <AppIcon name="arrow" size={18} />
             </button>
             <button
               className="secondary-button"
               type="button"
-              onClick={() => onNavigate("editor")}
+              onClick={() => onNavigate("projects")}
             >
-              Abrir editor
+              Elegir proyecto
             </button>
           </div>
         </div>
@@ -118,11 +119,11 @@ function HomeScreen({
         </article>
         <article className="metric-card">
           <span className="metric-card__icon">
-            <AppIcon name="projects" />
+            <AppIcon name="video" />
           </span>
           <div>
-            <small>Proyectos</small>
-            <strong>CRUD + duplicación</strong>
+            <small>Medios</small>
+            <strong>Firmas + SHA-256</strong>
           </div>
         </article>
         <article className="metric-card">
