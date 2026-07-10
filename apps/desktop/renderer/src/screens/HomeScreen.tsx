@@ -5,7 +5,7 @@ Ruta o ubicación: /apps/desktop/renderer/src/screens/HomeScreen.tsx
 Función o funciones:
 - Mostrar el panel de inicio de la aplicación.
 - Presentar accesos directos hacia los módulos principales.
-- Informar el estado de medios, derivados y caché multimedia.
+- Informar análisis acústico y reducción automática de silencios.
 ========================================================= */
 
 import { DOMAIN_SCHEMA_VERSION } from "../../../shared/domain";
@@ -31,15 +31,15 @@ const moduleCards = [
     route: "editor" as const,
     icon: "editor" as const,
     title: "Editor",
-    description: "Importa medios y genera proxies, miniaturas y ondas.",
-    status: "Caché integrada",
+    description: "Detecta, acorta o elimina silencios sin tocar originales.",
+    status: "Audio automático",
   },
   {
     route: "jobs" as const,
     icon: "jobs" as const,
     title: "Trabajos",
     description: "Supervisa FFprobe, FFmpeg, progreso y reintentos.",
-    status: "Procesamiento real",
+    status: "Workers especializados",
   },
   {
     route: "library" as const,
@@ -66,12 +66,12 @@ function HomeScreen({
     <div className="screen-stack">
       <section className="dashboard-hero">
         <div className="dashboard-hero__content">
-          <span className="section-label">BLOQUE 10 · CACHÉ MULTIMEDIA</span>
-          <h2>El editor ya crea archivos optimizados sin tocar los originales</h2>
+          <span className="section-label">BLOQUES 11–12 · AUDIO Y SILENCIOS</span>
+          <h2>El editor ya detecta y reduce silencios automáticamente</h2>
           <p>
-            FFmpeg genera proxies de edición, miniaturas y formas de onda dentro
-            de Worker Threads. Los resultados se guardan en una caché local,
-            aparecen en el Editor y pueden eliminarse y regenerarse con seguridad.
+            FFmpeg identifica pausas mediante umbral y duración mínima. Después
+            puede acortarlas o eliminarlas creando una versión nueva, mientras el
+            archivo original y el análisis anterior permanecen intactos.
           </p>
           <div className="dashboard-hero__actions">
             <button
@@ -79,15 +79,15 @@ function HomeScreen({
               type="button"
               onClick={() => onNavigate("editor")}
             >
-              Abrir editor
+              Procesar audio
               <AppIcon name="arrow" size={18} />
             </button>
             <button
               className="secondary-button"
               type="button"
-              onClick={() => onNavigate("settings")}
+              onClick={() => onNavigate("jobs")}
             >
-              Revisar caché
+              Revisar trabajos
             </button>
           </div>
         </div>
@@ -110,8 +110,8 @@ function HomeScreen({
             <AppIcon name="shield" />
           </span>
           <div>
-            <small>Arquitectura</small>
-            <strong>Modular y segura</strong>
+            <small>Originales</small>
+            <strong>Siempre intactos</strong>
           </div>
         </article>
         <article className="metric-card">
@@ -125,11 +125,11 @@ function HomeScreen({
         </article>
         <article className="metric-card">
           <span className="metric-card__icon">
-            <AppIcon name="video" />
+            <AppIcon name="audio" />
           </span>
           <div>
             <small>Procesamiento</small>
-            <strong>FFmpeg + caché</strong>
+            <strong>silencedetect + concat</strong>
           </div>
         </article>
         <article className="metric-card">
