@@ -4,7 +4,7 @@ Ruta o ubicación: /apps/desktop/main/database/database-service.ts
 
 Función o funciones:
 - Administrar el ciclo de vida completo de SQLite.
-- Exponer proyectos, cola de trabajos, integridad y respaldos.
+- Exponer proyectos, medios, trabajos, integridad y respaldos.
 - Resolver rutas locales sin acoplarlas a la interfaz.
 ========================================================= */
 
@@ -15,11 +15,13 @@ import type {
   DatabaseStatus,
 } from "../../shared/database-contracts.js";
 import type { JobQueueRepository } from "../../shared/persistence/job-queue-repository.js";
+import type { MediaAssetRepository } from "../../shared/persistence/media-asset-repository.js";
 import type { ProjectRepository } from "../../shared/persistence/project-repository.js";
 import { LATEST_DATABASE_VERSION } from "./migrations.js";
 import { DatabaseBackupService } from "./database-backup-service.js";
 import { SqliteDatabase } from "./sqlite-database.js";
 import { SqliteJobQueueRepository } from "./sqlite-job-queue-repository.js";
+import { SqliteMediaAssetRepository } from "./sqlite-media-asset-repository.js";
 import { SqliteProjectRepository } from "./sqlite-project-repository.js";
 
 interface DatabasePaths {
@@ -56,6 +58,7 @@ function numberFromSqlite(value: number | bigint): number {
 class DatabaseService {
   private databaseInstance: SqliteDatabase | null = null;
   private projectRepositoryInstance: SqliteProjectRepository | null = null;
+  private mediaRepositoryInstance: SqliteMediaAssetRepository | null = null;
   private jobRepositoryInstance: SqliteJobQueueRepository | null = null;
   private backupServiceInstance: DatabaseBackupService | null = null;
 
@@ -75,6 +78,14 @@ class DatabaseService {
     }
 
     return this.projectRepositoryInstance;
+  }
+
+  get media(): MediaAssetRepository {
+    if (!this.mediaRepositoryInstance) {
+      throw new Error("El repositorio de medios todavía no fue inicializado.");
+    }
+
+    return this.mediaRepositoryInstance;
   }
 
   get jobs(): JobQueueRepository {
@@ -100,6 +111,7 @@ class DatabaseService {
       timeoutMs: 5_000,
     });
     const projectRepository = new SqliteProjectRepository(database);
+    const mediaRepository = new SqliteMediaAssetRepository(database);
     const jobRepository = new SqliteJobQueueRepository(database);
     const backupService = new DatabaseBackupService(database, {
       backupsDirectory: this.options.paths.backupsDirectory,
@@ -109,6 +121,7 @@ class DatabaseService {
 
     this.databaseInstance = database;
     this.projectRepositoryInstance = projectRepository;
+    this.mediaRepositoryInstance = mediaRepository;
     this.jobRepositoryInstance = jobRepository;
     this.backupServiceInstance = backupService;
 
@@ -159,6 +172,7 @@ class DatabaseService {
     this.databaseInstance?.close();
     this.databaseInstance = null;
     this.projectRepositoryInstance = null;
+    this.mediaRepositoryInstance = null;
     this.jobRepositoryInstance = null;
     this.backupServiceInstance = null;
   }
