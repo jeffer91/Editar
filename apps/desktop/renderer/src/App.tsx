@@ -3,9 +3,9 @@ Nombre completo: App.tsx
 Ruta o ubicación: /apps/desktop/renderer/src/App.tsx
 
 Función o funciones:
-- Coordinar navegación, estado del sistema y proyecto activo.
+- Coordinar navegación, sistema y proyecto activo.
 - Renderizar el shell visual compartido.
-- Mantener actualizado el proyecto después de importar medios.
+- Integrar editor, proyectos y centro de trabajos.
 ========================================================= */
 
 import { useState } from "react";
@@ -16,6 +16,7 @@ import { useSystemStatus } from "./app/use-system-status";
 import { AppShell } from "./components/layout/AppShell";
 import { EditorScreen } from "./screens/EditorScreen";
 import { HomeScreen } from "./screens/HomeScreen";
+import { JobsScreen } from "./screens/JobsScreen";
 import { LibraryScreen } from "./screens/LibraryScreen";
 import { ProjectsScreen } from "./screens/ProjectsScreen";
 import { SettingsScreen } from "./screens/SettingsScreen";
@@ -43,6 +44,8 @@ function App(): React.JSX.Element {
             onProjectChange={setActiveProject}
           />
         );
+      case "jobs":
+        return <JobsScreen onNavigateProjects={() => navigate("projects")} />;
       case "library":
         return <LibraryScreen />;
       case "settings":
