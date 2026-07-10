@@ -1,0 +1,386 @@
+/* =========================================================
+Nombre completo: app-layout.css
+Ruta o ubicación: /apps/desktop/renderer/src/app-layout.css
+
+Función o funciones:
+- Definir el shell principal de escritorio.
+- Estilizar barra lateral, navegación y encabezado.
+- Adaptar la aplicación a ventanas pequeñas y móviles.
+========================================================= */
+
+.app-layout {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  min-height: 100vh;
+  background: #f3f5f9;
+}
+
+.app-sidebar {
+  position: relative;
+  z-index: 30;
+  display: flex;
+  height: 100vh;
+  min-height: 0;
+  flex-direction: column;
+  padding: 25px 18px 20px;
+  color: #f8fafc;
+  background:
+    radial-gradient(circle at 12% 6%, rgb(104 95 242 / 20%), transparent 28%),
+    var(--sidebar);
+  overflow-y: auto;
+}
+
+.app-sidebar__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 4px;
+}
+
+.brand-button {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+  padding: 0;
+  color: #ffffff;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.brand-button__mark {
+  display: grid;
+  width: 43px;
+  height: 43px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 13px;
+  color: #ffffff;
+  background: linear-gradient(145deg, #756df4, #4f46dc);
+  box-shadow: 0 12px 26px rgb(79 70 220 / 34%);
+  font-size: 1.15rem;
+  font-weight: 850;
+}
+
+.brand-button__text {
+  min-width: 0;
+}
+
+.brand-button__text strong,
+.brand-button__text small {
+  display: block;
+}
+
+.brand-button__text strong {
+  color: #ffffff;
+  font-size: 1.02rem;
+  letter-spacing: 0.01em;
+}
+
+.brand-button__text small {
+  margin-top: 3px;
+  color: #9ea5b7;
+  font-size: 0.72rem;
+}
+
+.app-sidebar__close {
+  display: none;
+  color: #c7ccda;
+}
+
+.app-sidebar__close:hover {
+  color: #ffffff;
+  background: rgb(255 255 255 / 8%);
+}
+
+.app-navigation {
+  display: grid;
+  gap: 7px;
+  margin-top: 38px;
+}
+
+.app-navigation__item {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 12px;
+  border-radius: 12px;
+  color: #aeb5c6;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    color 150ms ease,
+    background 150ms ease,
+    transform 150ms ease;
+}
+
+.app-navigation__item:hover {
+  color: #ffffff;
+  background: rgb(255 255 255 / 6%);
+  transform: translateX(2px);
+}
+
+.app-navigation__item--active {
+  color: #ffffff;
+  background: linear-gradient(90deg, rgb(99 91 238 / 23%), rgb(255 255 255 / 7%));
+  box-shadow: inset 3px 0 0 #7b74f6;
+}
+
+.app-navigation__icon {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 10px;
+  color: currentColor;
+  background: rgb(255 255 255 / 5%);
+}
+
+.app-navigation__item--active .app-navigation__icon {
+  background: rgb(113 104 244 / 22%);
+}
+
+.app-navigation__text {
+  min-width: 0;
+}
+
+.app-navigation__text strong,
+.app-navigation__text small {
+  display: block;
+}
+
+.app-navigation__text strong {
+  color: inherit;
+  font-size: 0.84rem;
+}
+
+.app-navigation__text small {
+  margin-top: 3px;
+  overflow: hidden;
+  color: #858da1;
+  font-size: 0.67rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-navigation__item--active small {
+  color: #b5bbca;
+}
+
+.app-sidebar__footer {
+  margin-top: auto;
+  padding-top: 30px;
+}
+
+.system-indicator {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 13px;
+  border: 1px solid rgb(255 255 255 / 8%);
+  border-radius: 13px;
+  background: rgb(255 255 255 / 4%);
+}
+
+.system-indicator__dot {
+  width: 9px;
+  height: 9px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+}
+
+.system-indicator--connected .system-indicator__dot {
+  background: #42d58a;
+  box-shadow: 0 0 0 5px rgb(66 213 138 / 10%);
+}
+
+.system-indicator--checking .system-indicator__dot {
+  background: #e2b93d;
+  box-shadow: 0 0 0 5px rgb(226 185 61 / 10%);
+}
+
+.system-indicator--error .system-indicator__dot {
+  background: #ef6b63;
+  box-shadow: 0 0 0 5px rgb(239 107 99 / 10%);
+}
+
+.system-indicator strong,
+.system-indicator small {
+  display: block;
+}
+
+.system-indicator strong {
+  color: #eef1f7;
+  font-size: 0.73rem;
+}
+
+.system-indicator small {
+  margin-top: 3px;
+  color: #858da1;
+  font-size: 0.65rem;
+}
+
+.app-workspace {
+  min-width: 0;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.app-topbar {
+  display: flex;
+  min-height: 104px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 22px;
+  padding: 22px 32px;
+  border-bottom: 1px solid var(--border);
+  background: rgb(255 255 255 / 88%);
+  backdrop-filter: blur(18px);
+}
+
+.app-topbar__identity {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 13px;
+}
+
+.app-topbar__identity h1 {
+  margin: 0;
+  font-size: clamp(1.45rem, 2.5vw, 2rem);
+  letter-spacing: -0.045em;
+}
+
+.app-topbar__description {
+  margin: 4px 0 0;
+  color: var(--text-soft);
+  font-size: 0.78rem;
+}
+
+.app-topbar__menu {
+  display: none;
+  flex: 0 0 auto;
+}
+
+.app-topbar__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.app-content {
+  height: calc(100vh - 104px);
+  min-width: 0;
+  padding: 28px 32px 44px;
+  overflow-y: auto;
+}
+
+.sidebar-backdrop {
+  position: fixed;
+  z-index: 20;
+  inset: 0;
+  display: none;
+  width: 100%;
+  height: 100%;
+  background: rgb(14 17 28 / 48%);
+  cursor: pointer;
+}
+
+@media (max-width: 1120px) {
+  .app-layout {
+    grid-template-columns: 238px minmax(0, 1fr);
+  }
+
+  .app-sidebar {
+    padding-right: 14px;
+    padding-left: 14px;
+  }
+
+  .app-navigation__text small {
+    display: none;
+  }
+
+  .app-content,
+  .app-topbar {
+    padding-right: 24px;
+    padding-left: 24px;
+  }
+}
+
+@media (max-width: 820px) {
+  .app-layout {
+    display: block;
+  }
+
+  .app-sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: min(310px, 86vw);
+    transform: translateX(-105%);
+    transition: transform 190ms ease;
+    box-shadow: 28px 0 60px rgb(12 15 25 / 24%);
+  }
+
+  .app-sidebar--open {
+    transform: translateX(0);
+  }
+
+  .app-sidebar__close,
+  .app-topbar__menu,
+  .sidebar-backdrop {
+    display: inline-grid;
+  }
+
+  .app-workspace {
+    height: auto;
+    min-height: 100vh;
+    overflow: visible;
+  }
+
+  .app-content {
+    height: auto;
+    min-height: calc(100vh - 92px);
+  }
+
+  .app-topbar {
+    min-height: 92px;
+  }
+}
+
+@media (max-width: 620px) {
+  .app-topbar {
+    align-items: flex-start;
+    padding: 17px 16px;
+  }
+
+  .app-topbar__description,
+  .version-badge {
+    display: none;
+  }
+
+  .app-topbar__actions {
+    padding-top: 5px;
+  }
+
+  .connection-chip {
+    padding: 7px 9px;
+    font-size: 0;
+  }
+
+  .connection-chip__dot {
+    width: 8px;
+    height: 8px;
+  }
+
+  .app-content {
+    padding: 20px 16px 34px;
+  }
+}
