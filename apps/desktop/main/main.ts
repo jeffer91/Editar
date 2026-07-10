@@ -11,9 +11,10 @@ Función o funciones:
 
 import { app, BrowserWindow } from "electron";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { registerSystemIpc } from "./ipc/register-system-ipc.js";
 import { applyWindowSecurity } from "./security/window-security.js";
+import type { TrustedSourceOptions } from "./security/trusted-sources.js";
 
 const currentFile = fileURLToPath(import.meta.url);
 const currentDirectory = dirname(currentFile);
@@ -29,7 +30,16 @@ function getRendererPath(): string {
   return join(currentDirectory, "../../dist-renderer/index.html");
 }
 
-async function createMainWindow(): Promise<void> {
+function getTrustedSources(): TrustedSourceOptions {
+  return {
+    developmentUrl,
+    productionUrl: pathToFileURL(getRendererPath()).href,
+  };
+}
+
+async function createMainWindow(
+  trustedSources: TrustedSourceOptions,
+): Promise<void> {
   mainWindow = new BrowserWindow({
     width: 1440,
     height: 900,
@@ -50,7 +60,7 @@ async function createMainWindow(): Promise<void> {
     },
   });
 
-  applyWindowSecurity(mainWindow, developmentUrl);
+  applyWindowSecurity(mainWindow, trustedSources);
 
   mainWindow.once("ready-to-show", () => {
     mainWindow?.show();
@@ -75,12 +85,14 @@ async function createMainWindow(): Promise<void> {
 app
   .whenReady()
   .then(async () => {
-    registerSystemIpc({ developmentUrl });
-    await createMainWindow();
+    const trustedSources = getTrustedSources();
+
+    registerSystemIpc(trustedSources);
+    await createMainWindow(trustedSources);
 
     app.on("activate", () => {
       if (BrowserWindow.getAllWindows().length === 0) {
-        void createMainWindow();
+        void createMainWindow(trustedSources);
       }
     });
   })
