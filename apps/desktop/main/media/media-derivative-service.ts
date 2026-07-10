@@ -182,9 +182,10 @@ class MediaDerivativeService implements MediaDerivativeScheduler {
       );
     }
 
+    const metadata = asset.metadata;
     const requestedTypes = plannedDerivativeTypes(asset);
 
-    if (requestedTypes.length === 0) {
+    if (asset.inspection.status !== "ready" || !metadata || requestedTypes.length === 0) {
       throw new MediaDerivativeConflictError(
         "El recurso debe completar primero su análisis técnico.",
       );
@@ -257,9 +258,7 @@ class MediaDerivativeService implements MediaDerivativeScheduler {
           temporaryPath,
           cacheKey,
           durationUs:
-            asset.metadata.kind === "image"
-              ? 0
-              : Number(asset.metadata.durationUs),
+            metadata.kind === "image" ? 0 : Number(metadata.durationUs),
           thumbnailSeekUs: thumbnailSeekUs(asset),
           ffmpegCommand: ffmpeg.command,
           ffmpegArgumentsPrefix: [...ffmpeg.argumentsPrefix],
