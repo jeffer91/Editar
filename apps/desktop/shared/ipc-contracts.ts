@@ -5,7 +5,7 @@ Ruta o ubicación: /apps/desktop/shared/ipc-contracts.ts
 Función o funciones:
 - Definir los canales IPC permitidos por la aplicación.
 - Compartir contratos tipados entre main, preload y renderer.
-- Incorporar edición funcional de clips, audio, video y textos.
+- Incorporar edición funcional, transiciones y efectos de sonido.
 ========================================================= */
 
 import type { DatabaseBridge } from "./database-contracts.js";
@@ -37,6 +37,11 @@ const IPC_CHANNELS = Object.freeze({
   timelineUpdateTextClip: "timeline:update-text-clip",
   timelineUpdateClipAudioMix: "timeline:update-clip-audio-mix",
   timelineUpdateClipVisual: "timeline:update-clip-visual",
+  timelineSetTransition: "timeline:set-transition",
+  timelineRemoveTransition: "timeline:remove-transition",
+  timelineAddSoundEffect: "timeline:add-sound-effect",
+  timelineUpdateSoundEffect: "timeline:update-sound-effect",
+  timelineDeleteSoundEffect: "timeline:delete-sound-effect",
   mediaChooseAndImport: "media:choose-and-import",
   mediaGetEngineStatus: "media:get-engine-status",
   mediaAnalyze: "media:analyze",
