@@ -61,23 +61,54 @@ function ClipInspector({
   onUpdateText,
 }: ClipInspectorProps): React.JSX.Element {
   const clip = project.clips.find((candidate) => candidate.id === selectedClipId);
-  const layer =
-    clip?.source.type === "text"
-      ? project.textLayers.find(
-          (candidate) => candidate.id === clip.source.textLayerId,
-        )
+  const textLayerId =
+    clip?.source.type === "text" ? clip.source.textLayerId : null;
+  const layer = textLayerId
+    ? project.textLayers.find((candidate) => candidate.id === textLayerId)
+    : undefined;
+  const selectedMedia =
+    clip?.source.type === "media"
+      ? project.media.find((candidate) => candidate.id === clip.source.mediaId)
       : undefined;
   const compatibleTracks = useMemo(() => {
     if (!clip) return [];
+
     return project.tracks.filter((track) => {
-      if (clip.kind === "text") return track.kind === "text" || track.kind === "overlay";
-      if (clip.kind === "media") {
-        return track.kind === "video" || track.kind === "audio" || track.kind === "overlay";
+      if (clip.kind === "text") {
+        return track.kind === "text" || track.kind === "overlay";
       }
-      if (clip.kind === "generator") return track.kind === "video" || track.kind === "overlay";
+
+      if (clip.kind === "media") {
+        if (selectedMedia?.kind === "audio") {
+          return track.kind === "audio";
+        }
+
+        if (selectedMedia?.kind === "image") {
+          return track.kind === "video" || track.kind === "overlay";
+        }
+
+        if (selectedMedia?.kind === "video") {
+          const hasAudio =
+            selectedMedia.metadata?.kind === "video" &&
+            selectedMedia.metadata.audio !== undefined;
+
+          return (
+            track.kind === "video" ||
+            track.kind === "overlay" ||
+            (track.kind === "audio" && hasAudio)
+          );
+        }
+
+        return track.id === clip.trackId;
+      }
+
+      if (clip.kind === "generator") {
+        return track.kind === "video" || track.kind === "overlay";
+      }
+
       return track.kind === "adjustment";
     });
-  }, [clip, project.tracks]);
+  }, [clip, project.tracks, selectedMedia]);
 
   const [trackId, setTrackId] = useState("");
   const [startSeconds, setStartSeconds] = useState(0);
@@ -89,20 +120,25 @@ function ClipInspector({
   const [color, setColor] = useState("#FFFFFF");
   const [backgroundColor, setBackgroundColor] = useState("#000000");
   const [backgroundOpacity, setBackgroundOpacity] = useState(0);
-  const [alignment, setAlignment] = useState<TextStyle["alignment"]>("center");
-  const [entrance, setEntrance] = useState<TextAnimationPresetId | "none">("none");
+  const [alignment, setAlignment] =
+    useState<TextStyle["alignment"]>("center");
+  const [entrance, setEntrance] =
+    useState<TextAnimationPresetId | "none">("none");
   const [entranceDuration, setEntranceDuration] = useState(350);
-  const [exit, setExit] = useState<TextAnimationPresetId | "none">("none");
+  const [exit, setExit] =
+    useState<TextAnimationPresetId | "none">("none");
   const [exitDuration, setExitDuration] = useState(250);
 
   useEffect(() => {
     if (!clip) return;
+
     setTrackId(clip.trackId);
     setStartSeconds(seconds(clip.timelineStartUs));
     setDurationSeconds(seconds(clip.durationUs));
     setSourceStartSeconds(
       clip.source.type === "media" ? seconds(clip.source.sourceStartUs) : 0,
     );
+
     if (layer) {
       setContent(layer.content);
       setFontSize(layer.style.fontSizePx);
@@ -116,7 +152,7 @@ function ClipInspector({
       setExit(layer.exitAnimation?.presetId ?? "none");
       setExitDuration(layer.exitAnimation?.durationMs ?? 250);
     }
-  }, [clip?.id, layer?.id]);
+  }, [clip, layer]);
 
   if (!clip) {
     return (
@@ -124,12 +160,22 @@ function ClipInspector({
         <span className="section-label">PROPIEDADES</span>
         <h2>Selecciona un clip</h2>
         <p>
-          Haz clic en un clip para moverlo, recortarlo, dividirlo o editar su texto.
+          Haz clic en un clip para moverlo, recortarlo, dividirlo o editar su
+          texto.
         </p>
         <dl>
-          <div><dt>Clips</dt><dd>{project.clips.length}</dd></div>
-          <div><dt>Textos</dt><dd>{project.textLayers.length}</dd></div>
-          <div><dt>Duración</dt><dd>{seconds(project.sequences[0]?.durationUs ?? 0)} s</dd></div>
+          <div>
+            <dt>Clips</dt>
+            <dd>{project.clips.length}</dd>
+          </div>
+          <div>
+            <dt>Textos</dt>
+            <dd>{project.textLayers.length}</dd>
+          </div>
+          <div>
+            <dt>Duración</dt>
+            <dd>{seconds(project.sequences[0]?.durationUs ?? 0)} s</dd>
+          </div>
         </dl>
       </aside>
     );
@@ -156,9 +202,14 @@ function ClipInspector({
         <legend>Tiempo y pista</legend>
         <label>
           Pista
-          <select value={trackId} onChange={(event) => setTrackId(event.target.value)}>
+          <select
+            value={trackId}
+            onChange={(event) => setTrackId(event.target.value)}
+          >
             {compatibleTracks.map((track) => (
-              <option value={track.id} key={track.id}>{track.name}</option>
+              <option value={track.id} key={track.id}>
+                {track.name}
+              </option>
             ))}
           </select>
         </label>
@@ -192,7 +243,9 @@ function ClipInspector({
               min="0"
               step="0.01"
               value={sourceStartSeconds}
-              onChange={(event) => setSourceStartSeconds(Number(event.target.value))}
+              onChange={(event) =>
+                setSourceStartSeconds(Number(event.target.value))
+              }
             />
           </label>
         ) : null}
@@ -220,36 +273,73 @@ function ClipInspector({
           <legend>Texto y estilo</legend>
           <label>
             Contenido
-            <textarea value={content} rows={4} onChange={(event) => setContent(event.target.value)} />
+            <textarea
+              value={content}
+              rows={4}
+              onChange={(event) => setContent(event.target.value)}
+            />
           </label>
           <div className="clip-inspector__grid">
             <label>
               Tamaño
-              <input type="number" min="8" max="300" value={fontSize} onChange={(event) => setFontSize(Number(event.target.value))} />
+              <input
+                type="number"
+                min="8"
+                max="300"
+                value={fontSize}
+                onChange={(event) => setFontSize(Number(event.target.value))}
+              />
             </label>
             <label>
               Peso
-              <select value={fontWeight} onChange={(event) => setFontWeight(Number(event.target.value))}>
+              <select
+                value={fontWeight}
+                onChange={(event) => setFontWeight(Number(event.target.value))}
+              >
                 {[300, 400, 500, 600, 700, 800, 900].map((weight) => (
-                  <option value={weight} key={weight}>{weight}</option>
+                  <option value={weight} key={weight}>
+                    {weight}
+                  </option>
                 ))}
               </select>
             </label>
             <label>
               Color
-              <input type="color" value={color} onChange={(event) => setColor(event.target.value)} />
+              <input
+                type="color"
+                value={color}
+                onChange={(event) => setColor(event.target.value)}
+              />
             </label>
             <label>
               Fondo
-              <input type="color" value={backgroundColor} onChange={(event) => setBackgroundColor(event.target.value)} />
+              <input
+                type="color"
+                value={backgroundColor}
+                onChange={(event) => setBackgroundColor(event.target.value)}
+              />
             </label>
             <label>
               Opacidad fondo
-              <input type="number" min="0" max="1" step="0.05" value={backgroundOpacity} onChange={(event) => setBackgroundOpacity(Number(event.target.value))} />
+              <input
+                type="number"
+                min="0"
+                max="1"
+                step="0.05"
+                value={backgroundOpacity}
+                onChange={(event) =>
+                  setBackgroundOpacity(Number(event.target.value))
+                }
+              />
             </label>
             <label>
               Alineación
-              <select value={alignment} onChange={(event) => setAlignment(event.target.value as TextStyle["alignment"])}>
+              <select
+                value={alignment}
+                onChange={(event) =>
+                  setAlignment(event.target.value as TextStyle["alignment"])
+                }
+              >
                 <option value="left">Izquierda</option>
                 <option value="center">Centro</option>
                 <option value="right">Derecha</option>
@@ -260,25 +350,61 @@ function ClipInspector({
           <div className="clip-inspector__grid">
             <label>
               Entrada
-              <select value={entrance} onChange={(event) => setEntrance(event.target.value as TextAnimationPresetId | "none")}>
+              <select
+                value={entrance}
+                onChange={(event) =>
+                  setEntrance(
+                    event.target.value as TextAnimationPresetId | "none",
+                  )
+                }
+              >
                 <option value="none">Sin animación</option>
-                {TEXT_ANIMATION_PRESET_IDS.map((preset) => <option value={preset} key={preset}>{preset}</option>)}
+                {TEXT_ANIMATION_PRESET_IDS.map((preset) => (
+                  <option value={preset} key={preset}>
+                    {preset}
+                  </option>
+                ))}
               </select>
             </label>
             <label>
               Duración entrada
-              <input type="number" min="0" max="60000" value={entranceDuration} onChange={(event) => setEntranceDuration(Number(event.target.value))} />
+              <input
+                type="number"
+                min="0"
+                max="60000"
+                value={entranceDuration}
+                onChange={(event) =>
+                  setEntranceDuration(Number(event.target.value))
+                }
+              />
             </label>
             <label>
               Salida
-              <select value={exit} onChange={(event) => setExit(event.target.value as TextAnimationPresetId | "none")}>
+              <select
+                value={exit}
+                onChange={(event) =>
+                  setExit(event.target.value as TextAnimationPresetId | "none")
+                }
+              >
                 <option value="none">Sin animación</option>
-                {TEXT_ANIMATION_PRESET_IDS.map((preset) => <option value={preset} key={preset}>{preset}</option>)}
+                {TEXT_ANIMATION_PRESET_IDS.map((preset) => (
+                  <option value={preset} key={preset}>
+                    {preset}
+                  </option>
+                ))}
               </select>
             </label>
             <label>
               Duración salida
-              <input type="number" min="0" max="60000" value={exitDuration} onChange={(event) => setExitDuration(Number(event.target.value))} />
+              <input
+                type="number"
+                min="0"
+                max="60000"
+                value={exitDuration}
+                onChange={(event) =>
+                  setExitDuration(Number(event.target.value))
+                }
+              />
             </label>
           </div>
           <button
