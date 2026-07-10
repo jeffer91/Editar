@@ -3,12 +3,17 @@ Nombre completo: trusted-sources.ts
 Ruta o ubicación: /apps/desktop/main/security/trusted-sources.ts
 
 Función o funciones:
-- Determinar qué direcciones puede cargar la ventana principal.
+- Determinar qué dirección puede cargar la ventana principal.
 - Validar el origen de cada solicitud IPC recibida.
-- Bloquear mensajes procedentes de páginas o marcos no confiables.
+- Limitar producción al archivo renderer compilado de la app.
 ========================================================= */
 
-import { app, type IpcMainInvokeEvent } from "electron";
+import type { IpcMainInvokeEvent } from "electron";
+
+interface TrustedSourceOptions {
+  readonly developmentUrl?: string;
+  readonly productionUrl: string;
+}
 
 class UntrustedSenderError extends Error {
   constructor() {
@@ -17,9 +22,9 @@ class UntrustedSenderError extends Error {
   }
 }
 
-function getUrlOrigin(value: string): string | null {
+function parseUrl(value: string): URL | null {
   try {
-    return new URL(value).origin;
+    return new URL(value);
   } catch {
     return null;
   }
@@ -27,45 +32,35 @@ function getUrlOrigin(value: string): string | null {
 
 function isTrustedRendererUrl(
   candidateUrl: string,
-  developmentUrl?: string,
+  options: TrustedSourceOptions,
 ): boolean {
-  if (!candidateUrl) {
+  const candidate = parseUrl(candidateUrl);
+  const expected = parseUrl(
+    options.developmentUrl ?? options.productionUrl,
+  );
+
+  if (!candidate || !expected) {
     return false;
   }
 
-  if (app.isPackaged) {
-    try {
-      return new URL(candidateUrl).protocol === "file:";
-    } catch {
-      return false;
-    }
-  }
-
-  if (developmentUrl) {
-    const candidateOrigin = getUrlOrigin(candidateUrl);
-    const developmentOrigin = getUrlOrigin(developmentUrl);
-
+  if (expected.protocol === "file:") {
     return (
-      candidateOrigin !== null &&
-      developmentOrigin !== null &&
-      candidateOrigin === developmentOrigin
+      candidate.protocol === "file:" &&
+      decodeURIComponent(candidate.pathname) ===
+        decodeURIComponent(expected.pathname)
     );
   }
 
-  try {
-    return new URL(candidateUrl).protocol === "file:";
-  } catch {
-    return false;
-  }
+  return candidate.origin === expected.origin;
 }
 
 function assertTrustedIpcSender(
   event: IpcMainInvokeEvent,
-  developmentUrl?: string,
+  options: TrustedSourceOptions,
 ): void {
   const senderUrl = event.senderFrame?.url ?? "";
 
-  if (!isTrustedRendererUrl(senderUrl, developmentUrl)) {
+  if (!isTrustedRendererUrl(senderUrl, options)) {
     throw new UntrustedSenderError();
   }
 }
@@ -74,4 +69,5 @@ export {
   UntrustedSenderError,
   assertTrustedIpcSender,
   isTrustedRendererUrl,
+  type TrustedSourceOptions,
 };
