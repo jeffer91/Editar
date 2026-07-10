@@ -19,6 +19,7 @@ import type {
   AudioAnalysisRequestResult,
   SilenceReductionRequestResult,
 } from "../../shared/audio-processing-contracts.js";
+import { toMicroseconds } from "../../shared/domain/index.js";
 import {
   IPC_CHANNELS,
   type IpcResult,
@@ -252,7 +253,10 @@ function registerMediaIpc(options: RegisterMediaIpcOptions): void {
           request.requestId,
           await audioAnalysisService.enqueue(input.projectId, input.mediaId, {
             thresholdDb: input.thresholdDb,
-            minSilenceUs: input.minSilenceMs * 1_000 as never,
+            minSilenceUs: toMicroseconds(
+              input.minSilenceMs * 1_000,
+              "minSilenceUs",
+            ),
           }),
         );
       } catch (error) {
@@ -272,8 +276,14 @@ function registerMediaIpc(options: RegisterMediaIpcOptions): void {
           request.requestId,
           await silenceReductionService.enqueue(input.projectId, input.mediaId, {
             mode: input.mode,
-            targetSilenceUs: input.targetSilenceMs * 1_000 as never,
-            edgePaddingUs: input.edgePaddingMs * 1_000 as never,
+            targetSilenceUs: toMicroseconds(
+              input.targetSilenceMs * 1_000,
+              "targetSilenceUs",
+            ),
+            edgePaddingUs: toMicroseconds(
+              input.edgePaddingMs * 1_000,
+              "edgePaddingUs",
+            ),
           }),
         );
       } catch (error) {
