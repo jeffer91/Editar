@@ -67,7 +67,7 @@ interface AddTextClipRequest extends TimelineProjectInput {
   readonly durationMs?: number;
 }
 
-interface TextStylePatch extends Partial<TextStyle> {}
+type TextStylePatch = Partial<TextStyle>;
 
 interface UpdateTextClipRequest extends TimelineProjectInput {
   readonly clipId: EntityId<"clip">;
