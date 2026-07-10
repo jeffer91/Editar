@@ -5,7 +5,7 @@ Ruta o ubicación: /apps/desktop/renderer/src/screens/HomeScreen.tsx
 Función o funciones:
 - Mostrar el panel de inicio de la aplicación.
 - Presentar accesos directos hacia los módulos principales.
-- Informar el estado del dominio y la persistencia local.
+- Informar el estado del dominio, SQLite y proyectos.
 ========================================================= */
 
 import { DOMAIN_SCHEMA_VERSION } from "../../../shared/domain";
@@ -24,15 +24,15 @@ const moduleCards = [
     route: "projects" as const,
     icon: "projects" as const,
     title: "Proyectos",
-    description: "Organiza videos, recursos y versiones de trabajo.",
-    status: "Persistencia lista",
+    description: "Crea, busca, duplica, archiva y abre proyectos.",
+    status: "Gestión funcional",
   },
   {
     route: "editor" as const,
     icon: "editor" as const,
     title: "Editor",
-    description: "Vista preparada para monitor, herramientas y timeline.",
-    status: "Dominio listo",
+    description: "Muestra el proyecto activo, sus pistas y recursos.",
+    status: "Proyecto conectado",
   },
   {
     route: "library" as const,
@@ -59,13 +59,12 @@ function HomeScreen({
     <div className="screen-stack">
       <section className="dashboard-hero">
         <div className="dashboard-hero__content">
-          <span className="section-label">BLOQUE 5 · PERSISTENCIA LOCAL</span>
-          <h2>Los proyectos ya tienen almacenamiento local confiable</h2>
+          <span className="section-label">BLOQUE 6 · GESTIÓN DE PROYECTOS</span>
+          <h2>Los proyectos ya pueden administrarse de principio a fin</h2>
           <p>
-            SQLite guarda proyectos completos mediante transacciones, conserva
-            snapshots de recuperación y permite verificar la integridad o crear
-            respaldos desde Ajustes. La interfaz nunca accede directamente a la
-            base de datos.
+            La aplicación permite crear proyectos por formato, buscarlos,
+            abrirlos en el editor, renombrarlos, duplicarlos, archivarlos,
+            restaurarlos y eliminarlos mediante operaciones seguras sobre SQLite.
           </p>
           <div className="dashboard-hero__actions">
             <button
@@ -73,15 +72,15 @@ function HomeScreen({
               type="button"
               onClick={() => onNavigate("projects")}
             >
-              Ver proyectos
+              Gestionar proyectos
               <AppIcon name="arrow" size={18} />
             </button>
             <button
               className="secondary-button"
               type="button"
-              onClick={() => onNavigate("settings")}
+              onClick={() => onNavigate("editor")}
             >
-              Revisar almacenamiento
+              Abrir editor
             </button>
           </div>
         </div>
@@ -122,8 +121,8 @@ function HomeScreen({
             <AppIcon name="projects" />
           </span>
           <div>
-            <small>Persistencia</small>
-            <strong>SQLite + snapshots</strong>
+            <small>Proyectos</small>
+            <strong>CRUD + duplicación</strong>
           </div>
         </article>
         <article className="metric-card">
