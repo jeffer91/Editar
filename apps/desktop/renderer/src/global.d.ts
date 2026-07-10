@@ -3,24 +3,17 @@ Nombre completo: global.d.ts
 Ruta o ubicación: /apps/desktop/renderer/src/global.d.ts
 
 Función o funciones:
-- Definir el contrato inicial del puente seguro de Electron.
-- Proporcionar tipado estricto para window.editar.
-- Evitar el uso de valores globales sin declarar.
+- Aplicar el contrato compartido a window.editar.
+- Proporcionar autocompletado para la API segura del preload.
+- Impedir el uso de canales o funciones no declarados.
 ========================================================= */
+
+import type { EditarBridge } from "../../shared/ipc-contracts";
 
 export {};
 
 declare global {
   interface Window {
-    editar: {
-      runtime: {
-        platform: NodeJS.Platform;
-        versions: {
-          electron: string;
-          chrome: string;
-          node: string;
-        };
-      };
-    };
+    editar: EditarBridge;
   }
 }
