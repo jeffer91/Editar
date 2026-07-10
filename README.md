@@ -4,7 +4,7 @@ Ruta o ubicación: /README.md
 
 Función o funciones:
 - Documentar la finalidad y arquitectura actual del proyecto.
-- Explicar instalación, motores multimedia y verificación.
+- Explicar motores, derivados, caché y verificación.
 - Registrar los bloques completados y el siguiente bloque.
 ========================================================= -->
 
@@ -14,24 +14,25 @@ Aplicación de escritorio modular para edición de video, eliminación de silenc
 
 ## Estado actual
 
-- **Bloque 1:** inicialización de Electron, React, TypeScript y Vite.
+- **Bloque 1:** Electron, React, TypeScript y Vite.
 - **Bloque 2:** seguridad, contratos IPC y comunicación tipada.
-- **Bloque 3:** diseño visual, navegación y estructura de pantallas.
+- **Bloque 3:** diseño visual y navegación.
 - **Bloque 4:** núcleo y modelos del dominio.
-- **Bloque 5:** SQLite, migraciones, repositorios y respaldos.
+- **Bloque 5:** SQLite, migraciones y respaldos.
 - **Bloque 6:** gestión funcional de proyectos.
 - **Bloque 7:** importación y registro de medios.
-- **Bloque 8:** cola persistente y procesamiento en segundo plano.
+- **Bloque 8:** cola persistente y Worker Threads.
 - **Bloque 9:** integración de FFmpeg y FFprobe.
+- **Bloque 10:** proxies, miniaturas, formas de onda y caché multimedia.
 
-La aplicación ya puede localizar motores multimedia, verificar sus versiones, analizar videos, audios e imágenes mediante FFprobe dentro de Worker Threads y guardar los metadatos técnicos directamente en SQLite.
+La aplicación ya analiza medios con FFprobe y genera archivos optimizados con FFmpeg sin modificar los originales. Los derivados se guardan bajo `userData`, se registran en SQLite y se muestran mediante un protocolo interno validado.
 
 ## Requisitos
 
 - Node.js 22.16 o superior.
 - npm 10 o superior.
-- Windows 10 u 11 como plataforma inicial objetivo.
-- FFprobe disponible mediante una ruta configurada, recursos locales o `PATH` para ejecutar análisis reales.
+- Windows 10 u 11 como plataforma inicial.
+- FFmpeg y FFprobe disponibles mediante configuración, recursos locales o `PATH`.
 
 ## Instalación
 
@@ -44,19 +45,19 @@ npm install
 La aplicación busca cada herramienta en este orden:
 
 1. `EDITAR_FFMPEG_PATH` y `EDITAR_FFPROBE_PATH`.
-2. Carpeta `bin` de los recursos empaquetados.
-3. Carpeta `resources/bin` de la aplicación.
-4. Carpeta `resources/bin` del proyecto.
-5. `PATH` del sistema operativo.
+2. Recursos empaquetados.
+3. `resources/bin` de la aplicación.
+4. `resources/bin` del proyecto.
+5. `PATH` del sistema.
 
-En Windows se pueden colocar los ejecutables aquí:
+Archivos esperados en Windows:
 
 ```text
 resources/bin/ffmpeg.exe
 resources/bin/ffprobe.exe
 ```
 
-También pueden señalarse temporalmente desde PowerShell:
+Configuración temporal desde PowerShell:
 
 ```powershell
 $env:EDITAR_FFMPEG_PATH = "C:\ffmpeg\bin\ffmpeg.exe"
@@ -64,15 +65,13 @@ $env:EDITAR_FFPROBE_PATH = "C:\ffmpeg\bin\ffprobe.exe"
 npm run dev
 ```
 
-Los binarios grandes no se versionan todavía en GitHub. El instalador final deberá incorporar versiones verificadas y compatibles con su licencia.
+Los binarios grandes no están versionados todavía. El instalador final deberá incorporar versiones verificadas y compatibles con su licencia.
 
 ## Desarrollo
 
 ```powershell
 npm run dev
 ```
-
-Este comando inicia Vite, compila Electron y abre la aplicación.
 
 ## Verificación
 
@@ -83,20 +82,21 @@ npm run verify
 La verificación incluye:
 
 1. Typecheck del renderer y Electron.
-2. Compilación de React, proceso principal, preload y Worker Threads.
-3. Pruebas de seguridad, IPC y navegación.
-4. Pruebas del dominio, SQLite, proyectos e importación.
-5. Pruebas de la cola, cancelación y recuperación.
-6. Pruebas del parser JSON de FFprobe.
-7. Pruebas de prioridad y fallback de binarios.
-8. Prueba completa de cola → Worker Thread → FFprobe simulado → SQLite.
-9. Pruebas de metadatos de video, audio e imagen.
-10. Confirmación de que el análisis técnico no genera snapshots adicionales.
+2. Compilación de React, preload, proceso principal y Workers.
+3. Pruebas de seguridad, IPC, navegación y dominio.
+4. Pruebas de SQLite, proyectos e importación.
+5. Pruebas de cola, cancelación, reintentos y recuperación.
+6. Pruebas de FFprobe y resolución de motores.
+7. Pruebas de operaciones y rutas de derivados.
+8. Prueba completa de cola → Worker → FFmpeg simulado → archivo → SQLite.
+9. Reutilización de caché y ausencia de snapshots técnicos.
+10. Reconciliación, eliminación de temporales, huérfanos y limpieza completa.
 
-Para ejecutar solo las pruebas de motores:
+Pruebas específicas:
 
 ```powershell
 npm run test:engines
+npm run test:cache
 ```
 
 ## Ejecución compilada
@@ -105,121 +105,126 @@ npm run test:engines
 npm start
 ```
 
-## Pantallas disponibles
+## Derivados multimedia
 
-- Inicio.
-- Proyectos.
-- Editor con importación y metadatos técnicos.
-- Centro de trabajos.
-- Biblioteca.
-- Ajustes con diagnóstico de SQLite, FFmpeg y FFprobe.
+Después de un análisis correcto, el sistema planifica automáticamente:
 
-## Integración de FFmpeg y FFprobe
+| Medio | Derivados |
+|---|---|
+| Video con audio | Proxy, miniatura y forma de onda |
+| Video sin audio | Proxy y miniatura |
+| Audio | Forma de onda |
+| Imagen | Miniatura |
 
-### Detección segura
+### Proxy
 
-La resolución de ejecutables:
+- MP4.
+- H.264 mediante `libx264`.
+- Escala máxima de 1280 × 720.
+- Relación de aspecto conservada.
+- Audio AAC a 128 kbps cuando existe.
+- `faststart` para lectura rápida.
 
-- se realiza únicamente en el proceso principal;
-- no acepta rutas provenientes del renderer;
-- ejecuta comandos con `shell: false`;
-- aplica tiempo límite;
-- comprueba `-version`;
-- informa origen, versión, comando resuelto y error.
+### Miniatura
 
-### Análisis técnico
+- JPG.
+- Escala máxima de 640 × 360.
+- En video se toma aproximadamente el 10 % de la duración, con máximo de cinco segundos.
+- En imagen se utiliza el primer cuadro disponible.
 
-Después de importar un medio, la aplicación intenta crear un trabajo `probe-media`.
+### Forma de onda
 
-FFprobe obtiene:
+- PNG de 1200 × 240.
+- Audio convertido a mono para visualización.
+- Generada con `showwavespic`.
 
-- duración;
-- ancho y alto;
-- tasa de cuadros racional;
-- códec de video o imagen;
-- bitrate cuando está disponible;
-- códec de audio;
-- canales;
-- frecuencia de muestreo;
-- bitrate de audio cuando está disponible.
-
-El parser rechaza respuestas incompletas. No se inventan valores ausentes.
-
-### Procesamiento
-
-El análisis se ejecuta dentro de un Worker Thread y usa la cola persistente del Bloque 8.
+## Flujo de procesamiento
 
 ```text
-Editor
-└── IPC por projectId + mediaId
-    └── MediaAnalysisService
-        └── trabajo probe-media
-            └── WorkerThreadJobExecutor
-                └── FFprobe
-                    └── JSON validado
-                        └── media_assets.data_json
+Importación
+└── probe-media
+    └── metadatos FFprobe
+        ├── generate-proxy
+        ├── generate-thumbnails
+        └── generate-waveform
+            └── archivo parcial
+                └── validación
+                    └── reemplazo atómico
+                        └── SQLite
 ```
 
-La aplicación limita la salida de FFprobe, aplica un tiempo máximo de 60 segundos y permite cancelar el proceso hijo.
+Los trabajos derivados dependen del análisis técnico cuando se crean automáticamente. También pueden solicitarse desde el Editor para recursos analizados que todavía no tienen todos sus archivos optimizados.
 
-### Persistencia
+## Caché multimedia
 
-Los metadatos actualizan únicamente la fila del recurso multimedia. El análisis técnico:
+La caché vive dentro de:
 
-- no reescribe todo el proyecto;
-- no modifica clips o pistas;
-- no genera snapshots;
-- conserva la ruta y hash del archivo original;
-- registra estado `pending`, `ready` o `failed`.
+```text
+<userData>/cache/media
+```
 
-### Importación sin motores
+Características:
 
-La ausencia de FFprobe no invalida la importación. El recurso permanece registrado como pendiente y puede analizarse posteriormente desde el Editor cuando el motor esté disponible.
+- nombres deterministas derivados de SHA-256;
+- carpetas segmentadas por proyecto y medio;
+- claves dependientes del original, metadatos, versión del generador y versión de FFmpeg;
+- reutilización de archivos válidos;
+- archivos parciales mientras FFmpeg trabaja;
+- reemplazo final mediante `rename`;
+- reconciliación al iniciar;
+- eliminación de temporales y huérfanos;
+- limpieza manual desde Ajustes;
+- bloqueo de limpieza cuando existen trabajos de caché activos.
+
+Limpiar la caché no elimina:
+
+- archivos originales;
+- proyectos;
+- pistas o clips;
+- metadatos de FFprobe;
+- respaldos.
+
+## Protocolo interno
+
+Las previsualizaciones se sirven mediante:
+
+```text
+editar-cache://derivative/<derivativeId>
+```
+
+El renderer solo conoce el identificador. El proceso principal:
+
+1. valida el ID;
+2. busca el derivado en SQLite;
+3. confirma que la ruta pertenece a la caché;
+4. comprueba que el archivo existe;
+5. sirve el contenido.
+
+React no recibe rutas físicas ni acceso general al sistema de archivos.
 
 ## Cola de trabajos
 
-La cola persistente registra estado, prioridad, progreso, dependencias, intentos, resultado y error. Permite pausar, reanudar, cancelar, reintentar y recuperar trabajos interrumpidos.
-
-En este bloque ya tienen ejecutor real:
+Ya tienen ejecución real:
 
 - `diagnostic-worker`;
-- `probe-media`.
+- `probe-media`;
+- `generate-proxy`;
+- `generate-thumbnails`;
+- `generate-waveform`.
 
-Los demás tipos se incorporarán gradualmente.
-
-## Importación de medios
-
-Formatos registrados inicialmente:
-
-- video: MP4, M4V, MOV, MKV, WEBM y AVI;
-- audio: MP3, WAV, M4A, AAC, FLAC, OGG y OPUS;
-- imagen: PNG, JPG, JPEG, WEBP, GIF y BMP.
-
-Antes de guardar cada recurso, la aplicación valida ruta, tamaño, extensión y firma binaria, calcula SHA-256 por streaming y busca duplicados. Los originales no se copian, renombran ni modifican.
-
-## Persistencia local
-
-SQLite utiliza:
-
-- tablas separadas por entidad;
-- claves foráneas y borrado en cascada;
-- modo WAL;
-- migraciones con checksum;
-- esquema versión 3;
-- snapshots de recuperación;
-- repositorios especializados para trabajos y medios;
-- respaldos externos con SHA-256;
-- retención automática.
+Cada trabajo mantiene prioridad, progreso, intentos, cancelación, errores y recuperación después de una interrupción.
 
 ## Seguridad
 
-- React no accede a Node.js, SQLite ni Worker Threads.
-- El renderer solo envía identificadores tipados.
-- Las rutas de archivos provienen del selector nativo o de SQLite.
-- Los comandos de motores se resuelven en el proceso principal.
-- FFprobe se ejecuta sin shell.
 - Los originales nunca se modifican.
-- Los resultados se validan antes de marcar el trabajo como completado.
+- FFmpeg y FFprobe se ejecutan con `shell: false`.
+- El renderer solo envía identificadores tipados.
+- Las rutas y comandos se resuelven en el proceso principal.
+- Toda salida debe permanecer dentro de la caché administrada.
+- Se rechaza traversal y cualquier ruta externa.
+- Los archivos se validan antes de registrarse.
+- Un resultado no persistido impide completar el trabajo.
+- La limpieza no se ejecuta durante trabajos activos.
 
 ## Estructura actual
 
@@ -250,14 +255,13 @@ Editar/
 
 ## Principios del proyecto
 
-- Los originales nunca se modificarán.
 - Todo IPC debe declararse, tiparse y validarse.
 - Los procesos pesados se ejecutan fuera del renderer.
-- Los resultados técnicos se validan antes de persistirse.
-- Los avances y metadatos no deben crear snapshots innecesarios.
-- Los motores deben ser reemplazables mediante contratos.
+- Los archivos técnicos son regenerables y están separados de los originales.
+- Los resultados se validan antes de persistirse.
+- Progreso, análisis y derivados no crean snapshots innecesarios.
 - Cada bloque debe compilar y superar pruebas antes de fusionarse.
 
 ## Siguiente bloque
 
-**Bloque 10 — Proxies, miniaturas, formas de onda y caché multimedia.**
+**Bloque 11 — Análisis de audio y detección de silencios.**
