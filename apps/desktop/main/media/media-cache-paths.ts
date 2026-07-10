@@ -9,12 +9,12 @@ Función o funciones:
 ========================================================= */
 
 import { createHash } from "node:crypto";
+import type { Dirent } from "node:fs";
 import {
   mkdir,
   readdir,
   rm,
   stat,
-  type Dirent,
 } from "node:fs/promises";
 import {
   dirname,
