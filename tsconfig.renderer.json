@@ -5,7 +5,7 @@
 
   Función o funciones:
   - Configurar TypeScript para React y el proceso renderer.
-  - Aplicar las reglas estrictas compartidas del proyecto.
+  - Incluir contratos compartidos sin exponer APIs de Node.js.
   - Mantener alias compatibles con TypeScript 7.
   ========================================================= */
   "extends": "./tsconfig.json",
@@ -23,13 +23,15 @@
     "noEmit": true,
     "jsx": "react-jsx",
     "paths": {
-      "@renderer/*": ["./apps/desktop/renderer/*"]
+      "@renderer/*": ["./apps/desktop/renderer/*"],
+      "@shared/*": ["./apps/desktop/shared/*"]
     }
   },
   "include": [
     "apps/desktop/renderer/**/*.ts",
     "apps/desktop/renderer/**/*.tsx",
     "apps/desktop/renderer/**/*.d.ts",
+    "apps/desktop/shared/**/*.ts",
     "vite.config.ts"
   ]
 }

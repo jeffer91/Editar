@@ -3,9 +3,9 @@ Nombre completo: README.md
 Ruta o ubicación: /README.md
 
 Función o funciones:
-- Documentar la finalidad y arquitectura inicial del proyecto.
+- Documentar la finalidad y arquitectura actual del proyecto.
 - Explicar cómo instalar, ejecutar y verificar la aplicación.
-- Registrar el alcance y estado del Bloque 1.
+- Registrar los bloques completados y el siguiente bloque.
 ========================================================= -->
 
 # Editar
@@ -14,16 +14,10 @@ Aplicación de escritorio modular para edición de video, eliminación de silenc
 
 ## Estado actual
 
-**Bloque 1 — Inicialización de la aplicación**
+- **Bloque 1:** inicialización de Electron, React, TypeScript y Vite.
+- **Bloque 2:** seguridad, contratos IPC y comunicación tipada.
 
-La base incluye:
-
-- Electron como contenedor de escritorio.
-- React para la interfaz.
-- TypeScript estricto.
-- Vite para desarrollo y compilación del renderer.
-- Proceso principal, preload seguro e interfaz separados.
-- Scripts multiplataforma de desarrollo, compilación y verificación.
+La aplicación ya dispone de proceso principal, preload aislado, interfaz React, canales IPC permitidos, validación de solicitudes, comprobación de remitentes y bloqueo de navegación no autorizada.
 
 ## Requisitos
 
@@ -57,7 +51,8 @@ La verificación realiza:
 2. Comprobación de tipos del renderer.
 3. Comprobación de tipos de Electron.
 4. Compilación de React.
-5. Compilación del proceso principal y preload.
+5. Compilación del proceso principal, preload y contratos.
+6. Pruebas automáticas de validación IPC.
 
 ## Ejecución compilada
 
@@ -65,16 +60,21 @@ La verificación realiza:
 npm start
 ```
 
-## Estructura inicial
+## Estructura actual
 
 ```text
 Editar/
 ├── apps/
 │   └── desktop/
 │       ├── main/
+│       │   ├── ipc/
+│       │   └── security/
 │       ├── preload/
-│       └── renderer/
+│       ├── renderer/
+│       └── shared/
+├── docs/
 ├── scripts/
+├── tests/
 ├── package.json
 ├── tsconfig.json
 ├── tsconfig.electron.json
@@ -86,10 +86,11 @@ Editar/
 
 - Los videos originales nunca se modificarán.
 - La interfaz no tendrá acceso directo a Node.js.
+- Todo canal IPC debe declararse, tiparse y validarse.
 - Los procesos pesados se incorporarán fuera del renderer.
 - Los módulos futuros dependerán de contratos estables.
 - Cada bloque deberá compilar y verificarse antes de continuar.
 
 ## Siguiente bloque
 
-**Bloque 2 — Seguridad, contratos IPC y comunicación tipada.**
+**Bloque 3 — Diseño visual base, navegación y estructura de pantallas.**
