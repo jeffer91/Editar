@@ -1,0 +1,46 @@
+# =========================================================
+# Nombre completo: verify.yml
+# Ruta o ubicación: /.github/workflows/verify.yml
+#
+# Función o funciones:
+# - Verificar automáticamente cada cambio enviado a main.
+# - Instalar dependencias y ejecutar la compilación completa.
+# - Detectar errores de TypeScript, Vite o Electron.
+# =========================================================
+
+name: Verificar aplicación
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Typecheck y build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm install
+
+      - name: Verificar proyecto
+        run: npm run verify
