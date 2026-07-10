@@ -9,11 +9,14 @@ Función o funciones:
 ========================================================= */
 
 import type { BrowserWindow } from "electron";
-import { isTrustedRendererUrl } from "./trusted-sources.js";
+import {
+  isTrustedRendererUrl,
+  type TrustedSourceOptions,
+} from "./trusted-sources.js";
 
 function applyWindowSecurity(
   window: BrowserWindow,
-  developmentUrl?: string,
+  trustedSources: TrustedSourceOptions,
 ): void {
   window.webContents.setWindowOpenHandler(({ url }) => {
     console.warn("Ventana externa bloqueada:", url);
@@ -21,14 +24,14 @@ function applyWindowSecurity(
   });
 
   window.webContents.on("will-navigate", (event, url) => {
-    if (!isTrustedRendererUrl(url, developmentUrl)) {
+    if (!isTrustedRendererUrl(url, trustedSources)) {
       event.preventDefault();
       console.warn("Navegación bloqueada:", url);
     }
   });
 
   window.webContents.on("will-redirect", (event, url) => {
-    if (!isTrustedRendererUrl(url, developmentUrl)) {
+    if (!isTrustedRendererUrl(url, trustedSources)) {
       event.preventDefault();
       console.warn("Redirección bloqueada:", url);
     }
