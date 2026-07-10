@@ -1,0 +1,241 @@
+/* =========================================================
+Nombre completo: media-engine.css
+Ruta o ubicación: /apps/desktop/renderer/src/media-engine.css
+
+Función o funciones:
+- Estilizar el estado de FFmpeg y FFprobe.
+- Presentar metadatos técnicos y controles de análisis.
+- Adaptar el diagnóstico a ventanas pequeñas.
+========================================================= */
+
+.media-engine-mini {
+  max-width: 130px;
+  padding: 4px 7px;
+  overflow: hidden;
+  border-radius: 999px;
+  font-size: 0.48rem;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.media-engine-mini--ready {
+  color: var(--success);
+  background: var(--success-soft);
+}
+
+.media-engine-mini--missing {
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+
+.media-asset-item--technical {
+  align-items: start;
+}
+
+.media-asset-item--technical .media-asset-item__icon {
+  margin-top: 2px;
+}
+
+.media-asset-item__content em {
+  display: -webkit-box;
+  margin-top: 5px;
+  overflow: hidden;
+  color: var(--danger);
+  font-size: 0.51rem;
+  font-style: normal;
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.media-asset-item__status-column {
+  display: flex;
+  align-items: flex-end;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.media-analyze-button {
+  min-height: 26px;
+  padding: 5px 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: 7px;
+  color: var(--primary);
+  background: #ffffff;
+  font-size: 0.51rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.media-analyze-button:hover:not(:disabled) {
+  border-color: #aaa5f4;
+  background: var(--primary-soft);
+}
+
+.media-analyze-button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.media-engine-section {
+  grid-column: 1 / -1;
+}
+
+.media-engine-overview {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-soft);
+}
+
+.media-engine-overview__identity {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+}
+
+.media-engine-overview__icon {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 11px;
+  color: var(--primary);
+  background: var(--primary-soft);
+}
+
+.media-engine-overview strong,
+.media-engine-overview small {
+  display: block;
+}
+
+.media-engine-overview strong {
+  margin-bottom: 4px;
+  font-size: 0.73rem;
+}
+
+.media-engine-overview small {
+  color: var(--text-muted);
+  font-size: 0.6rem;
+  line-height: 1.4;
+}
+
+.media-engine-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 13px;
+}
+
+.media-engine-card {
+  min-width: 0;
+  padding: 15px;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: #ffffff;
+  box-shadow: 0 5px 16px rgb(26 35 55 / 4%);
+}
+
+.media-engine-card__heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.media-engine-card__heading strong {
+  font-size: 0.72rem;
+}
+
+.media-engine-badge {
+  padding: 5px 8px;
+  border-radius: 999px;
+  font-size: 0.51rem;
+  font-weight: 800;
+}
+
+.media-engine-badge--ready {
+  color: var(--success);
+  background: var(--success-soft);
+}
+
+.media-engine-badge--missing {
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+
+.media-engine-card__rows {
+  display: grid;
+  gap: 8px;
+}
+
+.media-engine-card__row {
+  display: grid;
+  grid-template-columns: 86px minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.media-engine-card__row span {
+  color: var(--text-muted);
+  font-size: 0.56rem;
+}
+
+.media-engine-card__row strong,
+.media-engine-card__row code {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-soft);
+  font-size: 0.57rem;
+  font-weight: 650;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.media-engine-card__row code {
+  padding: 0;
+  background: transparent;
+  font-family: Consolas, "Courier New", monospace;
+}
+
+.media-engine-card__error {
+  margin-top: 10px;
+  padding: 9px;
+  border-radius: 8px;
+  color: var(--danger);
+  background: var(--danger-soft);
+  font-size: 0.56rem;
+  line-height: 1.4;
+}
+
+@media (max-width: 920px) {
+  .media-engine-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 680px) {
+  .media-engine-overview {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .media-engine-overview .secondary-button {
+    width: 100%;
+  }
+
+  .media-engine-card__row {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+}

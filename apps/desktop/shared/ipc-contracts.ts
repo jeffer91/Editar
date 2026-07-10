@@ -27,6 +27,8 @@ const IPC_CHANNELS = Object.freeze({
   projectsSetStatus: "projects:set-status",
   projectsDelete: "projects:delete",
   mediaChooseAndImport: "media:choose-and-import",
+  mediaGetEngineStatus: "media:get-engine-status",
+  mediaAnalyze: "media:analyze",
   jobsGetSnapshot: "jobs:get-snapshot",
   jobsEnqueueDiagnostic: "jobs:enqueue-diagnostic",
   jobsPause: "jobs:pause",

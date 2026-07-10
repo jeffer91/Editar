@@ -4,11 +4,17 @@ Ruta o ubicación: /apps/desktop/renderer/src/screens/EditorScreen.tsx
 
 Función o funciones:
 - Mostrar la estructura visual del editor.
-- Importar y presentar medios del proyecto activo.
+- Importar, analizar y refrescar medios del proyecto activo.
 - Guiar al usuario a Proyectos cuando no existe uno abierto.
 ========================================================= */
 
-import type { ProjectDocument, TrackKind } from "../../../shared/domain";
+import { useEffect } from "react";
+import type {
+  EntityId,
+  ProjectDocument,
+  TrackKind,
+} from "../../../shared/domain";
+import { useMediaAnalysis } from "../app/use-media-analysis";
 import { useMediaImport } from "../app/use-media-import";
 import { ProjectMediaPanel } from "../components/media/ProjectMediaPanel";
 import { AppIcon } from "../components/ui/AppIcon";
@@ -33,6 +39,33 @@ function EditorScreen({
   onProjectChange,
 }: EditorScreenProps): React.JSX.Element {
   const mediaImport = useMediaImport();
+  const mediaAnalysis = useMediaAnalysis();
+  const pendingMediaCount =
+    project?.media.filter((asset) => asset.inspection.status === "pending").length ?? 0;
+
+  useEffect(() => {
+    if (!project || pendingMediaCount === 0) {
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    const refreshProject = async (): Promise<void> => {
+      const result = await window.editar.projects.open({
+        projectId: project.project.id,
+      });
+
+      if (!cancelled && result.ok) {
+        onProjectChange(result.data);
+      }
+    };
+    const timer = window.setInterval(() => void refreshProject(), 800);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [onProjectChange, pendingMediaCount, project?.project.id]);
 
   if (!project) {
     return (
@@ -72,6 +105,22 @@ function EditorScreen({
     }
   };
 
+  const analyzeMedia = async (mediaId: EntityId<"media">): Promise<void> => {
+    const accepted = await mediaAnalysis.analyze(project.project.id, mediaId);
+
+    if (!accepted) {
+      return;
+    }
+
+    const refreshed = await window.editar.projects.open({
+      projectId: project.project.id,
+    });
+
+    if (refreshed.ok) {
+      onProjectChange(refreshed.data);
+    }
+  };
+
   return (
     <div className="screen-stack screen-stack--editor">
       <section className="editor-notice">
@@ -100,8 +149,14 @@ function EditorScreen({
           importing={mediaImport.importing}
           errorMessage={mediaImport.errorMessage}
           lastResult={mediaImport.lastResult}
+          engineStatus={mediaAnalysis.engine.status}
+          analyzingMediaId={mediaAnalysis.activeMediaId}
+          analysisMessage={mediaAnalysis.message}
+          analysisErrorMessage={mediaAnalysis.errorMessage || mediaAnalysis.engine.errorMessage}
           onImport={() => void importMedia()}
+          onAnalyze={(mediaId) => void analyzeMedia(mediaId)}
           onClearResult={mediaImport.clearResult}
+          onClearAnalysisMessages={mediaAnalysis.clearMessages}
         />
 
         <div className="editor-center">
@@ -215,6 +270,12 @@ function EditorScreen({
             <div className="property-row">
               <span>Recursos</span>
               <small>{project.media.length}</small>
+            </div>
+            <div className="property-row">
+              <span>Analizados</span>
+              <small>
+                {project.media.filter((asset) => asset.inspection.status === "ready").length}
+              </small>
             </div>
             <div className="property-row">
               <span>Clips</span>

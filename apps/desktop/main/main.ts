@@ -4,9 +4,8 @@ Ruta o ubicación: /apps/desktop/main/main.ts
 
 Función o funciones:
 - Iniciar el proceso principal de Electron.
-- Inicializar SQLite y la cola persistente.
-- Registrar IPC de sistema, proyectos, medios y trabajos.
-- Cerrar trabajadores y base de datos de forma ordenada.
+- Integrar SQLite, FFmpeg/FFprobe y la cola persistente.
+- Registrar IPC y cerrar trabajadores de forma ordenada.
 ========================================================= */
 
 import { app, BrowserWindow } from "electron";
@@ -22,7 +21,10 @@ import { registerMediaIpc } from "./ipc/register-media-ipc.js";
 import { registerProjectIpc } from "./ipc/register-project-ipc.js";
 import { registerSystemIpc } from "./ipc/register-system-ipc.js";
 import { JobQueueService } from "./jobs/job-queue-service.js";
+import { MediaProbeJobHandler } from "./jobs/media-probe-job-handler.js";
 import { WorkerThreadJobExecutor } from "./jobs/worker-thread-job-executor.js";
+import { FfmpegBinaryService } from "./media/ffmpeg-binary-service.js";
+import { MediaAnalysisService } from "./media/media-analysis-service.js";
 import { MediaImportService } from "./media/media-import-service.js";
 import { ProjectManagementService } from "./projects/project-management-service.js";
 import { applyWindowSecurity } from "./security/window-security.js";
@@ -118,16 +120,36 @@ app
     databaseService = service;
 
     const projectService = new ProjectManagementService(service.projects);
-    const mediaImportService = new MediaImportService(service.projects);
+    const engines = new FfmpegBinaryService({
+      applicationPath: app.getAppPath(),
+      resourcesPath: process.resourcesPath,
+      workspacePath: process.cwd(),
+    });
     const jobQueue = new JobQueueService({
       repository: service.jobs,
       projects: service.projects,
       executor: new WorkerThreadJobExecutor(),
+      resultHandler: new MediaProbeJobHandler(service.media),
       concurrency: 2,
       pollIntervalMs: 250,
     });
+    const mediaAnalysisService = new MediaAnalysisService({
+      projects: service.projects,
+      media: service.media,
+      jobs: service.jobs,
+      engines,
+      queue: jobQueue,
+    });
+    const mediaImportService = new MediaImportService(
+      service.projects,
+      mediaAnalysisService,
+    );
+
     jobQueueService = jobQueue;
     await jobQueue.start();
+    void engines.getStatus().catch((error) => {
+      console.error("No fue posible comprobar FFmpeg y FFprobe.", error);
+    });
 
     registerSystemIpc(trustedSources);
     registerDatabaseIpc({
@@ -141,6 +163,7 @@ app
     registerMediaIpc({
       trustedSources,
       mediaImportService,
+      mediaAnalysisService,
     });
     registerJobQueueIpc({
       trustedSources,

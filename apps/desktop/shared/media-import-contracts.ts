@@ -3,7 +3,7 @@ Nombre completo: media-import-contracts.ts
 Ruta o ubicación: /apps/desktop/shared/media-import-contracts.ts
 
 Función o funciones:
-- Definir contratos públicos para importar archivos multimedia.
+- Definir contratos públicos para importar y analizar medios.
 - Compartir resultados entre main, preload y renderer.
 - Mantener rutas y procesamiento fuera de la interfaz React.
 ========================================================= */
@@ -15,6 +15,11 @@ import type {
   ProjectDocument,
 } from "./domain/index.js";
 import type { IpcResult } from "./ipc-contracts.js";
+import type {
+  AnalyzeMediaInput,
+  MediaAnalysisRequestResult,
+  MediaEngineStatus,
+} from "./media-engine-contracts.js";
 
 interface ImportMediaInput {
   readonly projectId: EntityId<"project">;
@@ -47,6 +52,8 @@ interface MediaImportSummary {
   readonly importedCount: number;
   readonly duplicateCount: number;
   readonly rejectedCount: number;
+  readonly analysisQueuedCount: number;
+  readonly analysisDeferredCount: number;
   readonly importedByKind: Readonly<Record<MediaKind, number>>;
 }
 
@@ -60,6 +67,8 @@ interface MediaImportResult {
 
 interface MediaImportBridge {
   chooseAndImport(input: ImportMediaInput): Promise<IpcResult<MediaImportResult>>;
+  getEngineStatus(): Promise<IpcResult<MediaEngineStatus>>;
+  analyze(input: AnalyzeMediaInput): Promise<IpcResult<MediaAnalysisRequestResult>>;
 }
 
 export {

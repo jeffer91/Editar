@@ -4,8 +4,8 @@ Ruta o ubicación: /apps/desktop/main/ipc/register-media-ipc.ts
 
 Función o funciones:
 - Abrir el selector nativo de archivos multimedia.
-- Validar solicitudes y ejecutar la importación en el proceso principal.
-- Devolver resultados controlados sin aceptar rutas arbitrarias del renderer.
+- Exponer estado de FFmpeg/FFprobe y análisis por identificador.
+- Rechazar rutas y comandos enviados desde el renderer.
 ========================================================= */
 
 import {
@@ -19,12 +19,21 @@ import {
   IPC_CHANNELS,
   type IpcResult,
 } from "../../shared/ipc-contracts.js";
+import type {
+  MediaAnalysisRequestResult,
+  MediaEngineStatus,
+} from "../../shared/media-engine-contracts.js";
 import type { MediaImportResult } from "../../shared/media-import-contracts.js";
+import {
+  MediaAnalysisConflictError,
+  MediaAnalysisService,
+} from "../media/media-analysis-service.js";
 import {
   MediaImportConflictError,
   MediaImportService,
 } from "../media/media-import-service.js";
 import { SUPPORTED_MEDIA_EXTENSIONS } from "../media/media-file-inspector.js";
+import { parseAnalyzeMediaInput } from "../media/media-request-validation.js";
 import { ProjectNotFoundError } from "../projects/project-management-service.js";
 import { parseProjectIdInput } from "../projects/project-request-validation.js";
 import {
@@ -37,12 +46,14 @@ import {
   createFailure,
   createSuccess,
   getSafeRequestId,
+  parseRequestEnvelope,
   parseRequestWithPayload,
 } from "./ipc-validation.js";
 
 interface RegisterMediaIpcOptions {
   readonly trustedSources: TrustedSourceOptions;
   readonly mediaImportService: MediaImportService;
+  readonly mediaAnalysisService: MediaAnalysisService;
 }
 
 const VIDEO_EXTENSIONS = ["mp4", "m4v", "mov", "mkv", "webm", "avi"];
@@ -71,16 +82,19 @@ function handleMediaError<T>(
     return createFailure(requestId, "NOT_FOUND", error.message);
   }
 
-  if (error instanceof MediaImportConflictError) {
+  if (
+    error instanceof MediaImportConflictError ||
+    error instanceof MediaAnalysisConflictError
+  ) {
     return createFailure(requestId, "CONFLICT", error.message);
   }
 
-  console.error("Error procesando la importación multimedia:", error);
+  console.error("Error procesando una operación multimedia:", error);
 
   return createFailure(
     requestId,
     "INTERNAL_ERROR",
-    "No fue posible completar la importación multimedia.",
+    "No fue posible completar la operación multimedia.",
   );
 }
 
@@ -107,9 +121,15 @@ async function chooseMediaFiles(
 }
 
 function registerMediaIpc(options: RegisterMediaIpcOptions): void {
-  const { trustedSources, mediaImportService } = options;
+  const { trustedSources, mediaImportService, mediaAnalysisService } = options;
 
-  ipcMain.removeHandler(IPC_CHANNELS.mediaChooseAndImport);
+  for (const channel of [
+    IPC_CHANNELS.mediaChooseAndImport,
+    IPC_CHANNELS.mediaGetEngineStatus,
+    IPC_CHANNELS.mediaAnalyze,
+  ]) {
+    ipcMain.removeHandler(channel);
+  }
 
   ipcMain.handle(
     IPC_CHANNELS.mediaChooseAndImport,
@@ -133,6 +153,39 @@ function registerMediaIpc(options: RegisterMediaIpcOptions): void {
         );
       } catch (error) {
         return handleMediaError<MediaImportResult>(payload, error);
+      }
+    },
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.mediaGetEngineStatus,
+    async (event, payload): Promise<IpcResult<MediaEngineStatus>> => {
+      try {
+        assertTrustedIpcSender(event, trustedSources);
+        const request = parseRequestEnvelope(payload);
+        return createSuccess(
+          request.requestId,
+          await mediaAnalysisService.getEngineStatus(true),
+        );
+      } catch (error) {
+        return handleMediaError<MediaEngineStatus>(payload, error);
+      }
+    },
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.mediaAnalyze,
+    async (event, payload): Promise<IpcResult<MediaAnalysisRequestResult>> => {
+      try {
+        assertTrustedIpcSender(event, trustedSources);
+        const { request, payload: inputPayload } = parseRequestWithPayload(payload);
+        const input = parseAnalyzeMediaInput(inputPayload);
+        return createSuccess(
+          request.requestId,
+          await mediaAnalysisService.enqueue(input.projectId, input.mediaId),
+        );
+      } catch (error) {
+        return handleMediaError<MediaAnalysisRequestResult>(payload, error);
       }
     },
   );

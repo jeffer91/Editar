@@ -5,7 +5,7 @@ Ruta o ubicación: /apps/desktop/main/jobs/job-queue-service.ts
 Función o funciones:
 - Coordinar la cola persistente con prioridad y dependencias.
 - Ejecutar, pausar, cancelar, reintentar y recuperar trabajos.
-- Limitar concurrencia y mantener progreso fuera del renderer.
+- Aplicar resultados persistentes antes de completar cada operación.
 ========================================================= */
 
 import {
@@ -26,6 +26,10 @@ import type { JobQueueRepository } from "../../shared/persistence/job-queue-repo
 import type { ProjectRepository } from "../../shared/persistence/project-repository.js";
 import type { JobExecutor } from "./job-executor.js";
 import {
+  NoopJobResultHandler,
+  type JobResultHandler,
+} from "./job-result-handler.js";
+import {
   JobExecutionAbortedError,
   JobWorkerError,
 } from "./worker-thread-job-executor.js";
@@ -34,6 +38,7 @@ interface JobQueueServiceOptions {
   readonly repository: JobQueueRepository;
   readonly projects: ProjectRepository;
   readonly executor: JobExecutor;
+  readonly resultHandler?: JobResultHandler;
   readonly concurrency?: number;
   readonly pollIntervalMs?: number;
 }
@@ -77,6 +82,7 @@ class JobQueueService {
   readonly concurrency: number;
 
   private readonly pollIntervalMs: number;
+  private readonly resultHandler: JobResultHandler;
   private readonly active = new Map<EntityId<"job">, ActiveExecution>();
   private timer: NodeJS.Timeout | null = null;
   private ticking = false;
@@ -88,6 +94,7 @@ class JobQueueService {
       Math.max(options.pollIntervalMs ?? 250, 50),
       5_000,
     );
+    this.resultHandler = options.resultHandler ?? new NoopJobResultHandler();
   }
 
   async start(): Promise<void> {
@@ -119,6 +126,12 @@ class JobQueueService {
       [...this.active.values()].map((execution) => execution.promise),
     );
     await this.options.executor.close();
+  }
+
+  wake(): void {
+    if (!this.stopping) {
+      void this.tick();
+    }
   }
 
   async getSnapshot(): Promise<JobQueueSnapshot> {
@@ -158,7 +171,7 @@ class JobQueueService {
     });
 
     await this.options.repository.insert(job);
-    void this.tick();
+    this.wake();
 
     return {
       job,
@@ -196,9 +209,10 @@ class JobQueueService {
       throw new JobQueueConflictError("El trabajo no está pausado.");
     }
 
+    await this.resultHandler.prepareRetry(job);
     const resumed = updateJobState(job, { status: "pending" });
     await this.options.repository.update(resumed);
-    void this.tick();
+    this.wake();
     return { job: resumed, snapshot: await this.getSnapshot() };
   }
 
@@ -232,12 +246,13 @@ class JobQueueService {
       throw new JobQueueConflictError("Solo se pueden reintentar trabajos fallidos.");
     }
 
+    await this.resultHandler.prepareRetry(job);
     const retried = updateJobState(job, {
       status: "pending",
       attempt: job.attempt >= job.maxAttempts ? 0 : job.attempt,
     });
     await this.options.repository.update(retried);
-    void this.tick();
+    this.wake();
     return { job: retried, snapshot: await this.getSnapshot() };
   }
 
@@ -312,9 +327,7 @@ class JobQueueService {
       })
       .finally(() => {
         this.active.delete(job.id);
-        if (!this.stopping) {
-          void this.tick();
-        }
+        this.wake();
       });
 
     execution.promise = promise;
@@ -357,6 +370,20 @@ class JobQueueService {
         execution.controller.signal,
       );
       const latest = await this.requireJob(current.id);
+
+      try {
+        await this.resultHandler.complete(latest, result.result);
+      } catch (error) {
+        throw new JobWorkerError({
+          code: "JOB_RESULT_APPLY_ERROR",
+          message:
+            error instanceof Error
+              ? error.message
+              : "No fue posible guardar el resultado del trabajo.",
+          retryable: false,
+        });
+      }
+
       const completed = updateJobState(latest, {
         status: "completed",
         progress: 100,
@@ -391,8 +418,16 @@ class JobQueueService {
       await this.options.repository.update(failed);
 
       if (info.retryable && failed.attempt < failed.maxAttempts && !this.stopping) {
+        await this.resultHandler.prepareRetry(failed);
         const pending = updateJobState(failed, { status: "pending" });
         await this.options.repository.update(pending);
+        return;
+      }
+
+      try {
+        await this.resultHandler.fail(failed, info);
+      } catch (handlerError) {
+        console.error("No fue posible aplicar el fallo definitivo del trabajo.", handlerError);
       }
     }
   }
