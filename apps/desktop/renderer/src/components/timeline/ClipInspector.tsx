@@ -3,9 +3,9 @@ Nombre completo: ClipInspector.tsx
 Ruta o ubicación: /apps/desktop/renderer/src/components/timeline/ClipInspector.tsx
 
 Función o funciones:
-- Editar posición, duración, pista y punto de entrada de clips.
-- Dividir o eliminar el clip seleccionado.
-- Editar contenido, estilo y animaciones de textos.
+- Editar tiempo, pista, recorte y texto del clip seleccionado.
+- Integrar mezcla de audio y efectos visuales no destructivos.
+- Dividir o eliminar clips respetando bloqueos y estado del proyecto.
 ========================================================= */
 
 import { useEffect, useMemo, useState } from "react";
@@ -16,6 +16,14 @@ import {
   type TextAnimationPresetId,
   type TextStyle,
 } from "../../../../shared/domain";
+import {
+  AudioMixInspector,
+  type AudioMixInput,
+} from "./AudioMixInspector";
+import {
+  VideoEffectsInspector,
+  type VisualInspectorInput,
+} from "./VideoEffectsInspector";
 
 interface ClipTimingInput {
   readonly trackId: EntityId<"track">;
@@ -47,6 +55,14 @@ interface ClipInspectorProps {
     clipId: EntityId<"clip">,
     input: TextInspectorInput,
   ) => void;
+  readonly onUpdateAudioMix: (
+    clipId: EntityId<"clip">,
+    input: AudioMixInput,
+  ) => void;
+  readonly onUpdateVisual: (
+    clipId: EntityId<"clip">,
+    input: VisualInspectorInput,
+  ) => void;
 }
 
 function seconds(microseconds: number): number {
@@ -61,6 +77,8 @@ function ClipInspector({
   onSplit,
   onDelete,
   onUpdateText,
+  onUpdateAudioMix,
+  onUpdateVisual,
 }: ClipInspectorProps): React.JSX.Element {
   const clip = project.clips.find((candidate) => candidate.id === selectedClipId);
   const textLayerId =
@@ -79,35 +97,24 @@ function ClipInspector({
       if (clip.kind === "text") {
         return track.kind === "text" || track.kind === "overlay";
       }
-
       if (clip.kind === "generator") {
         return track.kind === "video" || track.kind === "overlay";
       }
-
-      if (clip.kind === "adjustment") {
-        return track.kind === "adjustment";
-      }
-
-      if (selectedMedia?.kind === "audio") {
-        return track.kind === "audio";
-      }
-
+      if (clip.kind === "adjustment") return track.kind === "adjustment";
+      if (selectedMedia?.kind === "audio") return track.kind === "audio";
       if (selectedMedia?.kind === "image") {
         return track.kind === "video" || track.kind === "overlay";
       }
-
       if (selectedMedia?.kind === "video") {
         const hasAudio =
           selectedMedia.metadata?.kind === "video" &&
           selectedMedia.metadata.audio !== undefined;
-
         return (
           track.kind === "video" ||
           track.kind === "overlay" ||
           (track.kind === "audio" && hasAudio)
         );
       }
-
       return track.id === clip.trackId;
     });
   }, [clip, project.tracks, selectedMedia]);
@@ -133,7 +140,6 @@ function ClipInspector({
 
   useEffect(() => {
     if (!clip) return;
-
     setTrackId(clip.trackId);
     setStartSeconds(seconds(clip.timelineStartUs));
     setDurationSeconds(seconds(clip.durationUs));
@@ -162,12 +168,12 @@ function ClipInspector({
         <span className="section-label">PROPIEDADES</span>
         <h2>Selecciona un clip</h2>
         <p>
-          Haz clic en un clip para moverlo, recortarlo, dividirlo o editar su
-          texto.
+          Haz clic en un clip para editar su tiempo, audio, imagen, efectos o
+          contenido de texto.
         </p>
         <dl>
           <div><dt>Clips</dt><dd>{project.clips.length}</dd></div>
-          <div><dt>Textos</dt><dd>{project.textLayers.length}</dd></div>
+          <div><dt>Efectos</dt><dd>{project.effects.length}</dd></div>
           <div><dt>Duración</dt><dd>{seconds(project.sequences[0]?.durationUs ?? 0)} s</dd></div>
         </dl>
       </aside>
@@ -177,6 +183,7 @@ function ClipInspector({
   const locked =
     project.project.status === "archived" ||
     project.tracks.find((track) => track.id === clip.trackId)?.locked === true;
+  const disabled = busy || locked;
   const splitAtMs = Math.round(
     (clip.timelineStartUs + clip.durationUs / 2) / 1_000,
   );
@@ -191,7 +198,7 @@ function ClipInspector({
         <span>{clip.kind}</span>
       </div>
 
-      <fieldset disabled={busy || locked}>
+      <fieldset disabled={disabled}>
         <legend>Tiempo y pista</legend>
         <label>
           Pista
@@ -259,8 +266,22 @@ function ClipInspector({
         </button>
       </fieldset>
 
+      <AudioMixInspector
+        project={project}
+        clipId={clip.id}
+        disabled={disabled}
+        onSave={(input) => onUpdateAudioMix(clip.id, input)}
+      />
+
+      <VideoEffectsInspector
+        project={project}
+        clipId={clip.id}
+        disabled={disabled}
+        onSave={(input) => onUpdateVisual(clip.id, input)}
+      />
+
       {layer ? (
-        <fieldset disabled={busy || locked}>
+        <fieldset disabled={disabled}>
           <legend>Texto y estilo</legend>
           <label>
             Contenido
@@ -421,7 +442,7 @@ function ClipInspector({
       <div className="clip-inspector__actions">
         <button
           type="button"
-          disabled={busy || locked || clip.durationUs < 20_000}
+          disabled={disabled || clip.durationUs < 20_000}
           onClick={() => onSplit(clip.id, splitAtMs)}
         >
           Dividir a la mitad
@@ -429,7 +450,7 @@ function ClipInspector({
         <button
           className="is-danger"
           type="button"
-          disabled={busy || locked}
+          disabled={disabled}
           onClick={() => onDelete(clip.id)}
         >
           Eliminar clip

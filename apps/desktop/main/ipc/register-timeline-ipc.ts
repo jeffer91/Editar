@@ -3,7 +3,7 @@ Nombre completo: register-timeline-ipc.ts
 Ruta o ubicación: /apps/desktop/main/ipc/register-timeline-ipc.ts
 
 Función o funciones:
-- Registrar operaciones IPC de clips, pistas y textos.
+- Registrar operaciones IPC de clips, pistas, textos, audio y video.
 - Validar remitente y payload antes de editar proyectos.
 - Traducir conflictos de dominio a respuestas controladas.
 ========================================================= */
@@ -21,6 +21,10 @@ import {
   TimelineEditingConflictError,
   TimelineEditingService,
 } from "../timeline/timeline-editing-service.js";
+import {
+  parseUpdateClipAudioMixRequest,
+  parseUpdateClipVisualRequest,
+} from "../timeline/clip-properties-request-validation.js";
 import {
   parseAddMediaClipRequest,
   parseAddTextClipRequest,
@@ -95,6 +99,8 @@ function registerTimelineIpc(options: RegisterTimelineIpcOptions): void {
     IPC_CHANNELS.timelineUpdateTrackState,
     IPC_CHANNELS.timelineAddTextClip,
     IPC_CHANNELS.timelineUpdateTextClip,
+    IPC_CHANNELS.timelineUpdateClipAudioMix,
+    IPC_CHANNELS.timelineUpdateClipVisual,
   ];
 
   for (const channel of channels) {
@@ -224,6 +230,42 @@ function registerTimelineIpc(options: RegisterTimelineIpcOptions): void {
         return createSuccess(
           request.requestId,
           await timelineService.updateTextClip(parseUpdateTextClipRequest(raw)),
+        );
+      } catch (error) {
+        return handleTimelineError(payload, error);
+      }
+    },
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.timelineUpdateClipAudioMix,
+    async (event, payload): Promise<IpcResult<ProjectDocument>> => {
+      try {
+        assertTrustedIpcSender(event, trustedSources);
+        const { request, payload: raw } = parseRequestWithPayload(payload);
+        return createSuccess(
+          request.requestId,
+          await timelineService.updateClipAudioMix(
+            parseUpdateClipAudioMixRequest(raw),
+          ),
+        );
+      } catch (error) {
+        return handleTimelineError(payload, error);
+      }
+    },
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.timelineUpdateClipVisual,
+    async (event, payload): Promise<IpcResult<ProjectDocument>> => {
+      try {
+        assertTrustedIpcSender(event, trustedSources);
+        const { request, payload: raw } = parseRequestWithPayload(payload);
+        return createSuccess(
+          request.requestId,
+          await timelineService.updateClipVisual(
+            parseUpdateClipVisualRequest(raw),
+          ),
         );
       } catch (error) {
         return handleTimelineError(payload, error);

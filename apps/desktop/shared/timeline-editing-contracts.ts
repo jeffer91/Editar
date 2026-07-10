@@ -3,17 +3,20 @@ Nombre completo: timeline-editing-contracts.ts
 Ruta o ubicación: /apps/desktop/shared/timeline-editing-contracts.ts
 
 Función o funciones:
-- Definir operaciones públicas de clips, pistas y textos.
+- Definir operaciones públicas de clips, pistas, textos, audio y video.
 - Compartir entradas tipadas entre renderer, preload y main.
-- Mantener microsegundos y persistencia fuera de la interfaz.
+- Mantener milisegundos en IPC y microsegundos dentro del dominio.
 ========================================================= */
 
 import type {
+  AnimationEasing,
   EntityId,
   ProjectDocument,
   TextAnimationPresetId,
   TextStyle,
   TextTemplateId,
+  VideoAnimationPresetId,
+  VideoStylePresetId,
 } from "./domain/index.js";
 import type { IpcResult } from "./ipc-contracts.js";
 
@@ -79,6 +82,38 @@ interface UpdateTextClipRequest extends TimelineProjectInput {
   readonly exitDurationMs?: number;
 }
 
+interface UpdateClipAudioMixRequest extends TimelineProjectInput {
+  readonly clipId: EntityId<"clip">;
+  readonly gainDb: number;
+  readonly pan: number;
+  readonly muted: boolean;
+  readonly fadeInMs: number;
+  readonly fadeOutMs: number;
+  readonly normalize: boolean;
+  readonly normalizationTargetDb: number;
+}
+
+interface ClipTransformPatch {
+  readonly positionX?: number;
+  readonly positionY?: number;
+  readonly scaleX?: number;
+  readonly scaleY?: number;
+  readonly rotationDegrees?: number;
+  readonly opacity?: number;
+  readonly anchorX?: number;
+  readonly anchorY?: number;
+}
+
+interface UpdateClipVisualRequest extends TimelineProjectInput {
+  readonly clipId: EntityId<"clip">;
+  readonly transform: ClipTransformPatch;
+  readonly stylePresetId: VideoStylePresetId;
+  readonly styleIntensity: number;
+  readonly animationPresetId: VideoAnimationPresetId;
+  readonly animationDurationMs: number;
+  readonly animationEasing: AnimationEasing;
+}
+
 interface TimelineEditingBridge {
   addMediaClip(input: AddMediaClipRequest): Promise<IpcResult<ProjectDocument>>;
   moveClip(input: MoveClipRequest): Promise<IpcResult<ProjectDocument>>;
@@ -92,11 +127,18 @@ interface TimelineEditingBridge {
   updateTextClip(
     input: UpdateTextClipRequest,
   ): Promise<IpcResult<ProjectDocument>>;
+  updateClipAudioMix(
+    input: UpdateClipAudioMixRequest,
+  ): Promise<IpcResult<ProjectDocument>>;
+  updateClipVisual(
+    input: UpdateClipVisualRequest,
+  ): Promise<IpcResult<ProjectDocument>>;
 }
 
 export {
   type AddMediaClipRequest,
   type AddTextClipRequest,
+  type ClipTransformPatch,
   type DeleteClipRequest,
   type MoveClipRequest,
   type SplitClipRequest,
@@ -104,6 +146,8 @@ export {
   type TimelineEditingBridge,
   type TimelineProjectInput,
   type TrimClipRequest,
+  type UpdateClipAudioMixRequest,
+  type UpdateClipVisualRequest,
   type UpdateTextClipRequest,
   type UpdateTrackStateRequest,
 };

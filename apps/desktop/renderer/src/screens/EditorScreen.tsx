@@ -3,18 +3,21 @@ Nombre completo: EditorScreen.tsx
 Ruta o ubicación: /apps/desktop/renderer/src/screens/EditorScreen.tsx
 
 Función o funciones:
-- Integrar medios, línea de tiempo funcional e inspector de clips.
-- Añadir, mover, recortar, dividir y eliminar clips persistentes.
-- Crear, editar y previsualizar títulos y subtítulos animados.
+- Integrar medios, línea de tiempo e inspector de clips.
+- Editar tiempo, audio, imagen, efectos y textos persistentes.
+- Previsualizar transformaciones, estilos y animaciones visuales.
 ========================================================= */
 
 import { useEffect } from "react";
-import type {
-  EntityId,
-  JobKind,
-  ProjectDocument,
-  SilenceReductionMode,
-  TextTemplateId,
+import {
+  isVisualClip,
+  readClipVisualSettings,
+  type EntityId,
+  type JobKind,
+  type ProjectDocument,
+  type SilenceReductionMode,
+  type TextTemplateId,
+  type VideoStylePresetId,
 } from "../../../shared/domain";
 import { useAudioProcessing } from "../app/use-audio-processing";
 import { useMediaAnalysis } from "../app/use-media-analysis";
@@ -59,6 +62,31 @@ function hexToRgba(hex: string, opacity: number): string {
   return `rgba(${red}, ${green}, ${blue}, ${opacity})`;
 }
 
+function previewFilter(
+  preset: VideoStylePresetId,
+  intensity: number,
+): string {
+  switch (preset) {
+    case "cinematic":
+      return `contrast(${1 + intensity * 0.28}) saturate(${1 - intensity * 0.12}) sepia(${intensity * 0.12})`;
+    case "monochrome":
+      return `grayscale(${intensity})`;
+    case "warm":
+      return `sepia(${intensity * 0.38}) saturate(${1 + intensity * 0.35})`;
+    case "cool":
+      return `hue-rotate(${intensity * 18}deg) saturate(${1 + intensity * 0.15})`;
+    case "vivid":
+      return `saturate(${1 + intensity}) contrast(${1 + intensity * 0.18})`;
+    case "soft-blur":
+      return `blur(${intensity * 4}px)`;
+    case "sharpen":
+      return `contrast(${1 + intensity * 0.32}) brightness(${1 + intensity * 0.05})`;
+    case "vignette":
+    case "none":
+      return "none";
+  }
+}
+
 function EditorScreen({
   project,
   onChooseProject,
@@ -91,17 +119,14 @@ function EditorScreen({
         );
 
       if (pendingMediaCount === 0 && !hasActiveMediaJobs) return;
-      const projectResult = await window.editar.projects.open({
+      const result = await window.editar.projects.open({
         projectId: project.project.id,
       });
-      if (!cancelled && projectResult.ok) {
-        onProjectChange(projectResult.data);
-      }
+      if (!cancelled && result.ok) onProjectChange(result.data);
     };
 
     const timer = window.setInterval(() => void refreshWhenNeeded(), 900);
     void refreshWhenNeeded();
-
     return () => {
       cancelled = true;
       window.clearInterval(timer);
@@ -121,13 +146,8 @@ function EditorScreen({
             Selecciona un proyecto guardado o crea uno nuevo para cargar su
             secuencia, pistas y recursos en el editor.
           </p>
-          <button
-            className="primary-button"
-            type="button"
-            onClick={onChooseProject}
-          >
-            Elegir proyecto
-            <AppIcon name="arrow" size={18} />
+          <button className="primary-button" type="button" onClick={onChooseProject}>
+            Elegir proyecto <AppIcon name="arrow" size={18} />
           </button>
         </section>
       </div>
@@ -138,21 +158,42 @@ function EditorScreen({
     (total, asset) => total + asset.derivatives.length,
     0,
   );
-  const audioAnalysisCount = project.media.filter(
-    (asset) => asset.audioAnalysis,
-  ).length;
-  const reducedCount = project.media.filter(
-    (asset) => asset.silenceReduction,
-  ).length;
+  const audioAnalysisCount = project.media.filter((asset) => asset.audioAnalysis).length;
+  const reducedCount = project.media.filter((asset) => asset.silenceReduction).length;
   const selectedClip = project.clips.find(
     (clip) => clip.id === timeline.selectedClipId,
   );
   const selectedTextLayerId =
-    selectedClip?.source.type === "text"
-      ? selectedClip.source.textLayerId
-      : null;
+    selectedClip?.source.type === "text" ? selectedClip.source.textLayerId : null;
   const selectedTextLayer = selectedTextLayerId
     ? project.textLayers.find((layer) => layer.id === selectedTextLayerId)
+    : undefined;
+  const selectedVisual =
+    selectedClip && isVisualClip(project, selectedClip.id)
+      ? readClipVisualSettings(project, selectedClip.id)
+      : null;
+  const visualClass = selectedVisual
+    ? `editor-monitor__visual--${selectedVisual.animationPresetId}`
+    : "";
+  const visualStyle = selectedVisual
+    ? {
+        opacity: selectedVisual.transform.opacity,
+        filter: previewFilter(
+          selectedVisual.stylePresetId,
+          selectedVisual.styleIntensity,
+        ),
+        transform: `translate(${selectedVisual.transform.positionX / 4}px, ${selectedVisual.transform.positionY / 4}px) scale(${selectedVisual.transform.scaleX}, ${selectedVisual.transform.scaleY}) rotate(${selectedVisual.transform.rotationDegrees}deg)`,
+        transformOrigin: `${selectedVisual.transform.anchorX * 100}% ${selectedVisual.transform.anchorY * 100}%`,
+        boxShadow:
+          selectedVisual.stylePresetId === "vignette"
+            ? `inset 0 0 ${20 + selectedVisual.styleIntensity * 80}px rgb(0 0 0 / ${0.2 + selectedVisual.styleIntensity * 0.55})`
+            : undefined,
+        animationDuration:
+          selectedVisual.animationPresetId === "none"
+            ? undefined
+            : `${Math.max(0.01, selectedVisual.animationDurationUs / 1_000_000)}s`,
+        animationTimingFunction: selectedVisual.animationEasing,
+      }
     : undefined;
 
   const applyDocument = (document: ProjectDocument | null): void => {
@@ -160,42 +201,10 @@ function EditorScreen({
   };
 
   const refreshProject = async (): Promise<void> => {
-    const refreshed = await window.editar.projects.open({
+    const result = await window.editar.projects.open({
       projectId: project.project.id,
     });
-    if (refreshed.ok) onProjectChange(refreshed.data);
-  };
-
-  const importMedia = async (): Promise<void> => {
-    const updatedProject = await mediaImport.chooseAndImport(project.project.id);
-    if (updatedProject) onProjectChange(updatedProject);
-  };
-
-  const analyzeMedia = async (mediaId: EntityId<"media">): Promise<void> => {
-    const accepted = await mediaAnalysis.analyze(project.project.id, mediaId);
-    if (accepted) await refreshProject();
-  };
-
-  const optimizeMedia = async (mediaId: EntityId<"media">): Promise<void> => {
-    const result = await mediaCache.generate(project.project.id, mediaId);
-    if (result) await refreshProject();
-  };
-
-  const analyzeAudio = async (mediaId: EntityId<"media">): Promise<void> => {
-    const result = await audioProcessing.analyze(project.project.id, mediaId);
-    if (result) await refreshProject();
-  };
-
-  const reduceSilence = async (
-    mediaId: EntityId<"media">,
-    mode: SilenceReductionMode,
-  ): Promise<void> => {
-    const result = await audioProcessing.reduce(
-      project.project.id,
-      mediaId,
-      mode,
-    );
-    if (result) await refreshProject();
+    if (result.ok) onProjectChange(result.data);
   };
 
   const saveClipTiming = async (
@@ -209,35 +218,31 @@ function EditorScreen({
       input.timelineStartMs,
     );
     if (!moved) return;
-
     onProjectChange(moved);
-    const trimmed = await timeline.trim(
-      project.project.id,
-      clipId,
-      input.timelineStartMs,
-      input.durationMs,
-      input.sourceStartMs,
+    applyDocument(
+      await timeline.trim(
+        project.project.id,
+        clipId,
+        input.timelineStartMs,
+        input.durationMs,
+        input.sourceStartMs,
+      ),
     );
-    applyDocument(trimmed);
   };
 
   return (
     <div className="screen-stack screen-stack--editor">
       <section className="editor-notice">
-        <span className="editor-notice__icon">
-          <AppIcon name="editor" />
-        </span>
+        <span className="editor-notice__icon"><AppIcon name="editor" /></span>
         <div>
           <strong>{project.project.name}</strong>
           <small>
             {project.project.canvas.width} × {project.project.canvas.height} ·{" "}
-            {project.project.canvas.aspectRatio} · {project.project.canvas.fps} FPS
-            · {project.clips.length} clips · {project.textLayers.length} textos
+            {project.project.canvas.aspectRatio} · {project.project.canvas.fps} FPS ·{" "}
+            {project.clips.length} clips · {project.effects.length} efectos
           </small>
         </div>
-        <span
-          className={`project-status project-status--${project.project.status}`}
-        >
+        <span className={`project-status project-status--${project.project.status}`}>
           {project.project.status === "draft"
             ? "Borrador"
             : project.project.status === "active"
@@ -251,18 +256,8 @@ function EditorScreen({
           className={`media-import-message ${timeline.errorMessage ? "media-import-message--error" : ""}`}
           role={timeline.errorMessage ? "alert" : "status"}
         >
-          <button
-            type="button"
-            aria-label="Cerrar mensaje"
-            onClick={timeline.clearMessages}
-          >
-            ×
-          </button>
-          <strong>
-            {timeline.errorMessage
-              ? "La edición no pudo guardarse"
-              : "Edición guardada"}
-          </strong>
+          <button type="button" aria-label="Cerrar mensaje" onClick={timeline.clearMessages}>×</button>
+          <strong>{timeline.errorMessage ? "La edición no pudo guardarse" : "Edición guardada"}</strong>
           <small>{timeline.errorMessage || timeline.message}</small>
         </div>
       ) : null}
@@ -279,19 +274,33 @@ function EditorScreen({
           audioActiveMediaId={audioProcessing.activeMediaId}
           audioOperation={audioProcessing.operation}
           analysisMessage={mediaAnalysis.message}
-          analysisErrorMessage={
-            mediaAnalysis.errorMessage || mediaAnalysis.engine.errorMessage
-          }
+          analysisErrorMessage={mediaAnalysis.errorMessage || mediaAnalysis.engine.errorMessage}
           cacheMessage={mediaCache.message}
           cacheErrorMessage={mediaCache.errorMessage}
           audioMessage={audioProcessing.message}
           audioErrorMessage={audioProcessing.errorMessage}
-          onImport={() => void importMedia()}
-          onAnalyze={(mediaId) => void analyzeMedia(mediaId)}
-          onOptimize={(mediaId) => void optimizeMedia(mediaId)}
-          onAnalyzeAudio={(mediaId) => void analyzeAudio(mediaId)}
-          onReduceSilence={(mediaId, mode) =>
-            void reduceSilence(mediaId, mode)
+          onImport={() =>
+            void mediaImport.chooseAndImport(project.project.id).then(applyDocument)
+          }
+          onAnalyze={(mediaId) =>
+            void mediaAnalysis.analyze(project.project.id, mediaId).then((accepted) => {
+              if (accepted) void refreshProject();
+            })
+          }
+          onOptimize={(mediaId) =>
+            void mediaCache.generate(project.project.id, mediaId).then((result) => {
+              if (result) void refreshProject();
+            })
+          }
+          onAnalyzeAudio={(mediaId) =>
+            void audioProcessing.analyze(project.project.id, mediaId).then((result) => {
+              if (result) void refreshProject();
+            })
+          }
+          onReduceSilence={(mediaId: EntityId<"media">, mode: SilenceReductionMode) =>
+            void audioProcessing.reduce(project.project.id, mediaId, mode).then((result) => {
+              if (result) void refreshProject();
+            })
           }
           onClearResult={mediaImport.clearResult}
           onClearAnalysisMessages={mediaAnalysis.clearMessages}
@@ -308,49 +317,52 @@ function EditorScreen({
                 backgroundColor: project.project.canvas.backgroundColor,
               }}
             >
-              {selectedTextLayer ? (
+              {selectedClip ? (
                 <div
-                  className={`editor-monitor__text-preview ${
-                    selectedTextLayer.entranceAnimation
-                      ? `editor-monitor__text-preview--${selectedTextLayer.entranceAnimation.presetId}`
-                      : ""
-                  }`}
-                  style={{
-                    color: selectedTextLayer.style.color,
-                    backgroundColor: hexToRgba(
-                      selectedTextLayer.style.backgroundColor,
-                      selectedTextLayer.style.backgroundOpacity,
-                    ),
-                    fontFamily: selectedTextLayer.style.fontFamily,
-                    fontSize: `${Math.max(
-                      14,
-                      selectedTextLayer.style.fontSizePx / 2.5,
-                    )}px`,
-                    fontWeight: selectedTextLayer.style.fontWeight,
-                    fontStyle: selectedTextLayer.style.fontStyle,
-                    lineHeight: selectedTextLayer.style.lineHeight,
-                    letterSpacing: `${selectedTextLayer.style.letterSpacingPx}px`,
-                    textAlign: selectedTextLayer.style.alignment,
-                  }}
+                  className={`editor-monitor__visual-preview ${visualClass}`}
+                  style={visualStyle}
                 >
-                  {selectedTextLayer.content}
+                  {selectedTextLayer ? (
+                    <div
+                      className={`editor-monitor__text-preview ${selectedTextLayer.entranceAnimation ? `editor-monitor__text-preview--${selectedTextLayer.entranceAnimation.presetId}` : ""}`}
+                      style={{
+                        color: selectedTextLayer.style.color,
+                        backgroundColor: hexToRgba(
+                          selectedTextLayer.style.backgroundColor,
+                          selectedTextLayer.style.backgroundOpacity,
+                        ),
+                        fontFamily: selectedTextLayer.style.fontFamily,
+                        fontSize: `${Math.max(14, selectedTextLayer.style.fontSizePx / 2.5)}px`,
+                        fontWeight: selectedTextLayer.style.fontWeight,
+                        fontStyle: selectedTextLayer.style.fontStyle,
+                        lineHeight: selectedTextLayer.style.lineHeight,
+                        letterSpacing: `${selectedTextLayer.style.letterSpacingPx}px`,
+                        textAlign: selectedTextLayer.style.alignment,
+                      }}
+                    >
+                      {selectedTextLayer.content}
+                    </div>
+                  ) : (
+                    <div className="editor-monitor__media-placeholder">
+                      <AppIcon name={selectedClip.kind === "media" ? "editor" : "library"} size={30} />
+                      <strong>{selectedClip.name}</strong>
+                      <small>
+                        {selectedVisual?.stylePresetId ?? "Sin efecto"} ·{" "}
+                        {selectedVisual?.animationPresetId ?? "Sin animación"}
+                      </small>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <>
                   <span className="editor-monitor__play">▶</span>
-                  <small>
-                    Selecciona un texto para previsualizar su animación
-                  </small>
+                  <small>Selecciona un clip para previsualizar sus propiedades</small>
                 </>
               )}
             </div>
             <div className="editor-monitor__controls">
               <span>00:00:00:00</span>
-              <div className="editor-monitor__transport">
-                <span>◀</span>
-                <span>▶</span>
-                <span>▶▶</span>
-              </div>
+              <div className="editor-monitor__transport"><span>◀</span><span>▶</span><span>▶▶</span></div>
               <span>100%</span>
             </div>
           </div>
@@ -361,9 +373,7 @@ function EditorScreen({
             busy={timeline.operation !== null}
             onSelectClip={timeline.selectClip}
             onAddMedia={(mediaId) =>
-              void timeline
-                .addMedia(project.project.id, mediaId)
-                .then(applyDocument)
+              void timeline.addMedia(project.project.id, mediaId).then(applyDocument)
             }
             onAddText={(templateId) =>
               void timeline
@@ -374,12 +384,8 @@ function EditorScreen({
                 )
                 .then((document) => {
                   applyDocument(document);
-                  if (document) {
-                    const newest = document.clips.at(-1);
-                    if (newest?.kind === "text") {
-                      timeline.selectClip(newest.id);
-                    }
-                  }
+                  const newest = document?.clips.at(-1);
+                  if (newest?.kind === "text") timeline.selectClip(newest.id);
                 })
             }
             onUpdateTrack={(trackId, state) =>
@@ -394,23 +400,21 @@ function EditorScreen({
           project={project}
           selectedClipId={timeline.selectedClipId}
           busy={timeline.operation !== null}
-          onSaveTiming={(clipId, input) =>
-            void saveClipTiming(clipId, input)
-          }
+          onSaveTiming={(clipId, input) => void saveClipTiming(clipId, input)}
           onSplit={(clipId, splitAtMs) =>
-            void timeline
-              .split(project.project.id, clipId, splitAtMs)
-              .then(applyDocument)
+            void timeline.split(project.project.id, clipId, splitAtMs).then(applyDocument)
           }
           onDelete={(clipId) =>
-            void timeline
-              .remove(project.project.id, clipId)
-              .then(applyDocument)
+            void timeline.remove(project.project.id, clipId).then(applyDocument)
           }
           onUpdateText={(clipId, input) =>
-            void timeline
-              .updateText(project.project.id, clipId, input)
-              .then(applyDocument)
+            void timeline.updateText(project.project.id, clipId, input).then(applyDocument)
+          }
+          onUpdateAudioMix={(clipId, input) =>
+            void timeline.updateAudioMix(project.project.id, clipId, input).then(applyDocument)
+          }
+          onUpdateVisual={(clipId, input) =>
+            void timeline.updateVisual(project.project.id, clipId, input).then(applyDocument)
           }
         />
       </section>
@@ -422,9 +426,9 @@ function EditorScreen({
             <h2>Edición no destructiva</h2>
           </div>
           <p>
-            {project.media.length} recursos · {audioAnalysisCount} audios
-            analizados · {reducedCount} versiones reducidas · {derivativeCount}{" "}
-            derivados
+            {project.media.length} recursos · {audioAnalysisCount} audios analizados ·{" "}
+            {reducedCount} versiones reducidas · {derivativeCount} derivados ·{" "}
+            {project.effects.length} efectos
           </p>
         </div>
       </section>
@@ -432,4 +436,9 @@ function EditorScreen({
   );
 }
 
-export { ACTIVE_MEDIA_JOB_KINDS, EditorScreen, type EditorScreenProps };
+export {
+  ACTIVE_MEDIA_JOB_KINDS,
+  EditorScreen,
+  previewFilter,
+  type EditorScreenProps,
+};

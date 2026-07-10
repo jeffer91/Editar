@@ -5,7 +5,7 @@ Ruta o ubicación: /apps/desktop/preload/preload.cts
 Función o funciones:
 - Exponer una API limitada y tipada al renderer.
 - Enviar solicitudes únicamente por canales IPC autorizados.
-- Proporcionar edición segura de clips, pistas, textos y medios.
+- Proporcionar edición segura de clips, audio, video, textos y medios.
 ========================================================= */
 
 const { contextBridge, ipcRenderer } = require("electron") as typeof import("electron");
@@ -48,6 +48,8 @@ type DeleteClipRequest = import("../shared/timeline-editing-contracts.js").Delet
 type MoveClipRequest = import("../shared/timeline-editing-contracts.js").MoveClipRequest;
 type SplitClipRequest = import("../shared/timeline-editing-contracts.js").SplitClipRequest;
 type TrimClipRequest = import("../shared/timeline-editing-contracts.js").TrimClipRequest;
+type UpdateClipAudioMixRequest = import("../shared/timeline-editing-contracts.js").UpdateClipAudioMixRequest;
+type UpdateClipVisualRequest = import("../shared/timeline-editing-contracts.js").UpdateClipVisualRequest;
 type UpdateTextClipRequest = import("../shared/timeline-editing-contracts.js").UpdateTextClipRequest;
 type UpdateTrackStateRequest = import("../shared/timeline-editing-contracts.js").UpdateTrackStateRequest;
 
@@ -72,6 +74,8 @@ const IPC_CHANNELS = Object.freeze({
   timelineUpdateTrackState: "timeline:update-track-state",
   timelineAddTextClip: "timeline:add-text-clip",
   timelineUpdateTextClip: "timeline:update-text-clip",
+  timelineUpdateClipAudioMix: "timeline:update-clip-audio-mix",
+  timelineUpdateClipVisual: "timeline:update-clip-visual",
   mediaChooseAndImport: "media:choose-and-import",
   mediaGetEngineStatus: "media:get-engine-status",
   mediaAnalyze: "media:analyze",
@@ -112,21 +116,16 @@ function invoke<TResponse, TPayload = undefined>(
 
 const bridge: EditarBridge = Object.freeze({
   system: Object.freeze({
-    getRuntimeInfo: () =>
-      invoke<RuntimeInfo>(IPC_CHANNELS.systemGetRuntimeInfo),
+    getRuntimeInfo: () => invoke<RuntimeInfo>(IPC_CHANNELS.systemGetRuntimeInfo),
     ping: () => invoke<PingInfo>(IPC_CHANNELS.systemPing),
   }),
   database: Object.freeze({
-    getStatus: () =>
-      invoke<DatabaseStatus>(IPC_CHANNELS.databaseGetStatus),
-    checkIntegrity: () =>
-      invoke<DatabaseStatus>(IPC_CHANNELS.databaseCheckIntegrity),
-    createBackup: () =>
-      invoke<DatabaseBackupInfo>(IPC_CHANNELS.databaseCreateBackup),
+    getStatus: () => invoke<DatabaseStatus>(IPC_CHANNELS.databaseGetStatus),
+    checkIntegrity: () => invoke<DatabaseStatus>(IPC_CHANNELS.databaseCheckIntegrity),
+    createBackup: () => invoke<DatabaseBackupInfo>(IPC_CHANNELS.databaseCreateBackup),
   }),
   projects: Object.freeze({
-    list: () =>
-      invoke<readonly ProjectListItem[]>(IPC_CHANNELS.projectsList),
+    list: () => invoke<readonly ProjectListItem[]>(IPC_CHANNELS.projectsList),
     create: (input: CreateProjectInput) =>
       invoke<ProjectListItem, CreateProjectInput>(IPC_CHANNELS.projectsCreate, input),
     open: (input: ProjectIdInput) =>
@@ -134,104 +133,62 @@ const bridge: EditarBridge = Object.freeze({
     rename: (input: RenameProjectInput) =>
       invoke<ProjectListItem, RenameProjectInput>(IPC_CHANNELS.projectsRename, input),
     duplicate: (input: DuplicateProjectInput) =>
-      invoke<ProjectListItem, DuplicateProjectInput>(
-        IPC_CHANNELS.projectsDuplicate,
-        input,
-      ),
+      invoke<ProjectListItem, DuplicateProjectInput>(IPC_CHANNELS.projectsDuplicate, input),
     setStatus: (input: SetProjectStatusInput) =>
-      invoke<ProjectListItem, SetProjectStatusInput>(
-        IPC_CHANNELS.projectsSetStatus,
-        input,
-      ),
+      invoke<ProjectListItem, SetProjectStatusInput>(IPC_CHANNELS.projectsSetStatus, input),
     delete: (input: ProjectIdInput) =>
-      invoke<DeleteProjectResult, ProjectIdInput>(
-        IPC_CHANNELS.projectsDelete,
-        input,
-      ),
+      invoke<DeleteProjectResult, ProjectIdInput>(IPC_CHANNELS.projectsDelete, input),
   }),
   timeline: Object.freeze({
     addMediaClip: (input: AddMediaClipRequest) =>
-      invoke<ProjectDocument, AddMediaClipRequest>(
-        IPC_CHANNELS.timelineAddMediaClip,
-        input,
-      ),
+      invoke<ProjectDocument, AddMediaClipRequest>(IPC_CHANNELS.timelineAddMediaClip, input),
     moveClip: (input: MoveClipRequest) =>
-      invoke<ProjectDocument, MoveClipRequest>(
-        IPC_CHANNELS.timelineMoveClip,
-        input,
-      ),
+      invoke<ProjectDocument, MoveClipRequest>(IPC_CHANNELS.timelineMoveClip, input),
     trimClip: (input: TrimClipRequest) =>
-      invoke<ProjectDocument, TrimClipRequest>(
-        IPC_CHANNELS.timelineTrimClip,
-        input,
-      ),
+      invoke<ProjectDocument, TrimClipRequest>(IPC_CHANNELS.timelineTrimClip, input),
     splitClip: (input: SplitClipRequest) =>
-      invoke<ProjectDocument, SplitClipRequest>(
-        IPC_CHANNELS.timelineSplitClip,
-        input,
-      ),
+      invoke<ProjectDocument, SplitClipRequest>(IPC_CHANNELS.timelineSplitClip, input),
     deleteClip: (input: DeleteClipRequest) =>
-      invoke<ProjectDocument, DeleteClipRequest>(
-        IPC_CHANNELS.timelineDeleteClip,
-        input,
-      ),
+      invoke<ProjectDocument, DeleteClipRequest>(IPC_CHANNELS.timelineDeleteClip, input),
     updateTrackState: (input: UpdateTrackStateRequest) =>
-      invoke<ProjectDocument, UpdateTrackStateRequest>(
-        IPC_CHANNELS.timelineUpdateTrackState,
-        input,
-      ),
+      invoke<ProjectDocument, UpdateTrackStateRequest>(IPC_CHANNELS.timelineUpdateTrackState, input),
     addTextClip: (input: AddTextClipRequest) =>
-      invoke<ProjectDocument, AddTextClipRequest>(
-        IPC_CHANNELS.timelineAddTextClip,
+      invoke<ProjectDocument, AddTextClipRequest>(IPC_CHANNELS.timelineAddTextClip, input),
+    updateTextClip: (input: UpdateTextClipRequest) =>
+      invoke<ProjectDocument, UpdateTextClipRequest>(IPC_CHANNELS.timelineUpdateTextClip, input),
+    updateClipAudioMix: (input: UpdateClipAudioMixRequest) =>
+      invoke<ProjectDocument, UpdateClipAudioMixRequest>(
+        IPC_CHANNELS.timelineUpdateClipAudioMix,
         input,
       ),
-    updateTextClip: (input: UpdateTextClipRequest) =>
-      invoke<ProjectDocument, UpdateTextClipRequest>(
-        IPC_CHANNELS.timelineUpdateTextClip,
+    updateClipVisual: (input: UpdateClipVisualRequest) =>
+      invoke<ProjectDocument, UpdateClipVisualRequest>(
+        IPC_CHANNELS.timelineUpdateClipVisual,
         input,
       ),
   }),
   media: Object.freeze({
     chooseAndImport: (input: ImportMediaInput) =>
-      invoke<MediaImportResult, ImportMediaInput>(
-        IPC_CHANNELS.mediaChooseAndImport,
-        input,
-      ),
-    getEngineStatus: () =>
-      invoke<MediaEngineStatus>(IPC_CHANNELS.mediaGetEngineStatus),
+      invoke<MediaImportResult, ImportMediaInput>(IPC_CHANNELS.mediaChooseAndImport, input),
+    getEngineStatus: () => invoke<MediaEngineStatus>(IPC_CHANNELS.mediaGetEngineStatus),
     analyze: (input: AnalyzeMediaInput) =>
-      invoke<MediaAnalysisRequestResult, AnalyzeMediaInput>(
-        IPC_CHANNELS.mediaAnalyze,
-        input,
-      ),
+      invoke<MediaAnalysisRequestResult, AnalyzeMediaInput>(IPC_CHANNELS.mediaAnalyze, input),
     analyzeAudio: (input: AnalyzeAudioInput) =>
-      invoke<AudioAnalysisRequestResult, AnalyzeAudioInput>(
-        IPC_CHANNELS.mediaAnalyzeAudio,
-        input,
-      ),
+      invoke<AudioAnalysisRequestResult, AnalyzeAudioInput>(IPC_CHANNELS.mediaAnalyzeAudio, input),
     reduceSilence: (input: ReduceSilenceInput) =>
-      invoke<SilenceReductionRequestResult, ReduceSilenceInput>(
-        IPC_CHANNELS.mediaReduceSilence,
-        input,
-      ),
+      invoke<SilenceReductionRequestResult, ReduceSilenceInput>(IPC_CHANNELS.mediaReduceSilence, input),
     generateDerivatives: (input: GenerateMediaDerivativesInput) =>
       invoke<MediaDerivativeRequestResult, GenerateMediaDerivativesInput>(
         IPC_CHANNELS.mediaGenerateDerivatives,
         input,
       ),
-    getCacheStatus: () =>
-      invoke<MediaCacheStatus>(IPC_CHANNELS.mediaGetCacheStatus),
-    clearCache: () =>
-      invoke<MediaCacheClearResult>(IPC_CHANNELS.mediaClearCache),
+    getCacheStatus: () => invoke<MediaCacheStatus>(IPC_CHANNELS.mediaGetCacheStatus),
+    clearCache: () => invoke<MediaCacheClearResult>(IPC_CHANNELS.mediaClearCache),
   }),
   jobs: Object.freeze({
-    getSnapshot: () =>
-      invoke<JobQueueSnapshot>(IPC_CHANNELS.jobsGetSnapshot),
+    getSnapshot: () => invoke<JobQueueSnapshot>(IPC_CHANNELS.jobsGetSnapshot),
     enqueueDiagnostic: (input: ProjectJobInput) =>
-      invoke<JobActionResult, ProjectJobInput>(
-        IPC_CHANNELS.jobsEnqueueDiagnostic,
-        input,
-      ),
+      invoke<JobActionResult, ProjectJobInput>(IPC_CHANNELS.jobsEnqueueDiagnostic, input),
     pause: (input: JobIdInput) =>
       invoke<JobActionResult, JobIdInput>(IPC_CHANNELS.jobsPause, input),
     resume: (input: JobIdInput) =>

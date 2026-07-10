@@ -5,7 +5,7 @@ Ruta o ubicación: /apps/desktop/renderer/src/main.tsx
 Función o funciones:
 - Iniciar la aplicación React.
 - Montar la interfaz dentro del elemento raíz.
-- Cargar estilos globales, audio, línea de tiempo y textos.
+- Cargar estilos globales, audio, línea de tiempo y efectos.
 ========================================================= */
 
 import { StrictMode } from "react";
@@ -21,6 +21,7 @@ import "./media-engine.css";
 import "./media-cache.css";
 import "./audio-processing.css";
 import "./timeline-editor.css";
+import "./clip-effects.css";
 import "./job-queue.css";
 
 const rootElement = document.getElementById("root");

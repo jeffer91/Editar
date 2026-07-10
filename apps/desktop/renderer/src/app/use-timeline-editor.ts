@@ -3,19 +3,23 @@ Nombre completo: use-timeline-editor.ts
 Ruta o ubicación: /apps/desktop/renderer/src/app/use-timeline-editor.ts
 
 Función o funciones:
-- Ejecutar operaciones de clips, pistas y textos desde React.
+- Ejecutar operaciones de clips, pistas, textos, audio y video desde React.
 - Mantener selección, operación activa, mensajes y errores.
 - Entregar siempre el ProjectDocument persistido por main.
 ========================================================= */
 
 import { useCallback, useState } from "react";
 import type {
+  AnimationEasing,
   EntityId,
   ProjectDocument,
   TextAnimationPresetId,
   TextStyle,
   TextTemplateId,
+  VideoAnimationPresetId,
+  VideoStylePresetId,
 } from "../../../shared/domain";
+import type { ClipTransformPatch } from "../../../shared/timeline-editing-contracts";
 
 type TimelineOperation =
   | "add-media"
@@ -25,7 +29,9 @@ type TimelineOperation =
   | "delete"
   | "track"
   | "add-text"
-  | "update-text";
+  | "update-text"
+  | "audio-mix"
+  | "visual";
 
 interface TimelineEditorState {
   readonly selectedClipId: EntityId<"clip"> | null;
@@ -62,7 +68,11 @@ interface TimelineEditorState {
   readonly setTrackState: (
     projectId: EntityId<"project">,
     trackId: EntityId<"track">,
-    state: { readonly muted?: boolean; readonly hidden?: boolean; readonly locked?: boolean },
+    state: {
+      readonly muted?: boolean;
+      readonly hidden?: boolean;
+      readonly locked?: boolean;
+    },
   ) => Promise<ProjectDocument | null>;
   readonly addText: (
     projectId: EntityId<"project">,
@@ -79,6 +89,31 @@ interface TimelineEditorState {
       readonly entranceDurationMs?: number;
       readonly exitPresetId?: TextAnimationPresetId | null;
       readonly exitDurationMs?: number;
+    },
+  ) => Promise<ProjectDocument | null>;
+  readonly updateAudioMix: (
+    projectId: EntityId<"project">,
+    clipId: EntityId<"clip">,
+    input: {
+      readonly gainDb: number;
+      readonly pan: number;
+      readonly muted: boolean;
+      readonly fadeInMs: number;
+      readonly fadeOutMs: number;
+      readonly normalize: boolean;
+      readonly normalizationTargetDb: number;
+    },
+  ) => Promise<ProjectDocument | null>;
+  readonly updateVisual: (
+    projectId: EntityId<"project">,
+    clipId: EntityId<"clip">,
+    input: {
+      readonly transform: ClipTransformPatch;
+      readonly stylePresetId: VideoStylePresetId;
+      readonly styleIntensity: number;
+      readonly animationPresetId: VideoAnimationPresetId;
+      readonly animationDurationMs: number;
+      readonly animationEasing: AnimationEasing;
     },
   ) => Promise<ProjectDocument | null>;
   readonly clearMessages: () => void;
@@ -206,6 +241,28 @@ function useTimelineEditor(): TimelineEditorState {
             ...input,
           }),
         "El texto fue actualizado.",
+      ),
+    updateAudioMix: (projectId, clipId, input) =>
+      run(
+        "audio-mix",
+        () =>
+          window.editar.timeline.updateClipAudioMix({
+            projectId,
+            clipId,
+            ...input,
+          }),
+        "La mezcla de audio fue actualizada.",
+      ),
+    updateVisual: (projectId, clipId, input) =>
+      run(
+        "visual",
+        () =>
+          window.editar.timeline.updateClipVisual({
+            projectId,
+            clipId,
+            ...input,
+          }),
+        "Los efectos visuales fueron actualizados.",
       ),
     clearMessages: () => {
       setMessage("");

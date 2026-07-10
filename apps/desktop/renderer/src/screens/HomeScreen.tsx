@@ -5,7 +5,7 @@ Ruta o ubicación: /apps/desktop/renderer/src/screens/HomeScreen.tsx
 Función o funciones:
 - Mostrar el panel de inicio de la aplicación.
 - Presentar accesos directos hacia los módulos principales.
-- Informar edición funcional de clips y textos animados.
+- Informar mezcla de audio, efectos y animaciones visuales.
 ========================================================= */
 
 import { DOMAIN_SCHEMA_VERSION } from "../../../shared/domain";
@@ -31,8 +31,8 @@ const moduleCards = [
     route: "editor" as const,
     icon: "editor" as const,
     title: "Editor",
-    description: "Añade, mueve, recorta y divide clips y textos animados.",
-    status: "Línea de tiempo funcional",
+    description: "Mezcla audio y aplica transformaciones, filtros y animaciones.",
+    status: "Edición audiovisual",
   },
   {
     route: "jobs" as const,
@@ -67,13 +67,13 @@ function HomeScreen({
       <section className="dashboard-hero">
         <div className="dashboard-hero__content">
           <span className="section-label">
-            BLOQUES 13–14 · LÍNEA DE TIEMPO Y TEXTOS
+            BLOQUES 15–16 · AUDIO, EFECTOS Y ANIMACIONES
           </span>
-          <h2>El editor ya permite construir una secuencia real de clips</h2>
+          <h2>El editor ya permite ajustar el sonido y la imagen de cada clip</h2>
           <p>
-            Los medios pueden añadirse, moverse, recortarse, dividirse y
-            eliminarse sin modificar los originales. También existen títulos,
-            subtítulos, rótulos y textos flotantes con animaciones editables.
+            Cada clip puede conservar ganancia, paneo, fundidos y normalización,
+            además de posición, escala, rotación, opacidad, presets visuales y
+            animaciones. Todo se guarda sin modificar los archivos originales.
           </p>
           <div className="dashboard-hero__actions">
             <button
@@ -81,7 +81,7 @@ function HomeScreen({
               type="button"
               onClick={() => onNavigate("editor")}
             >
-              Abrir línea de tiempo
+              Editar audio y video
               <AppIcon name="arrow" size={18} />
             </button>
             <button
@@ -96,7 +96,7 @@ function HomeScreen({
 
         <div className="dashboard-preview" aria-hidden="true">
           <div className="dashboard-preview__monitor">
-            <span className="dashboard-preview__play">TÍTULO</span>
+            <span className="dashboard-preview__play">FX</span>
           </div>
           <div className="dashboard-preview__timeline">
             <span className="preview-track preview-track--video" />
@@ -109,11 +109,11 @@ function HomeScreen({
       <section className="metrics-grid" aria-label="Estado de la aplicación">
         <article className="metric-card">
           <span className="metric-card__icon">
-            <AppIcon name="shield" />
+            <AppIcon name="audio" />
           </span>
           <div>
-            <small>Edición</small>
-            <strong>No destructiva</strong>
+            <small>Mezcla por clip</small>
+            <strong>Ganancia · paneo · fundidos</strong>
           </div>
         </article>
         <article className="metric-card">
@@ -130,8 +130,8 @@ function HomeScreen({
             <AppIcon name="editor" />
           </span>
           <div>
-            <small>Operaciones</small>
-            <strong>Mover · cortar · dividir</strong>
+            <small>Imagen</small>
+            <strong>Transformar · filtrar · animar</strong>
           </div>
         </article>
         <article className="metric-card">

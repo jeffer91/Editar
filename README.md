@@ -4,13 +4,13 @@ Ruta o ubicación: /README.md
 
 Función o funciones:
 - Documentar la finalidad y arquitectura actual del proyecto.
-- Explicar medios, audio, línea de tiempo y textos animados.
+- Explicar línea de tiempo, mezcla de audio y efectos visuales.
 - Registrar los bloques completados y el siguiente bloque.
 ========================================================= -->
 
 # Editar
 
-Aplicación de escritorio modular para edición de video, eliminación de silencios, textos animados, efectos, transiciones y automatización futura.
+Aplicación de escritorio modular para edición de video, tratamiento de audio, textos animados, efectos, transiciones y automatización futura.
 
 ## Estado actual
 
@@ -28,8 +28,10 @@ Aplicación de escritorio modular para edición de video, eliminación de silenc
 - **Bloque 12:** corte y reducción automática de silencios.
 - **Bloque 13:** línea de tiempo y edición funcional de clips.
 - **Bloque 14:** textos, títulos y subtítulos animados.
+- **Bloque 15:** edición y mezcla de audio por clip.
+- **Bloque 16:** efectos y animaciones de video.
 
-La aplicación ya puede importar y analizar medios, detectar silencios, generar versiones reducidas, construir una secuencia de clips y añadir textos animados. Los originales nunca se modifican.
+La aplicación ya puede importar y analizar medios, detectar silencios, construir una secuencia, editar clips, crear textos, configurar mezcla de audio y aplicar propiedades visuales. Los originales nunca se modifican.
 
 ## Requisitos
 
@@ -61,6 +63,7 @@ Pruebas específicas:
 ```powershell
 npm run test:audio
 npm run test:cache
+npm run test:effects
 npm run test:timeline
 ```
 
@@ -75,7 +78,9 @@ La verificación ejecuta:
 7. Detección y reducción de silencios.
 8. Inserción, movimiento, recorte, división y eliminación de clips.
 9. Plantillas, estilos y animaciones de texto.
-10. Persistencia, reapertura y snapshots.
+10. Ganancia, paneo, fundidos y normalización por clip.
+11. Transformaciones, filtros y animaciones visuales.
+12. Persistencia, reapertura y snapshots.
 
 ## Configuración de FFmpeg y FFprobe
 
@@ -126,7 +131,8 @@ Principios:
 - las rutas físicas permanecen en el proceso principal;
 - los trabajos pesados se ejecutan fuera del renderer;
 - las ediciones funcionales crean snapshots recuperables;
-- los resultados técnicos regenerables no crean snapshots innecesarios.
+- los resultados técnicos regenerables no crean snapshots innecesarios;
+- los efectos se almacenan como parámetros serializables y versionados.
 
 ## Línea de tiempo funcional
 
@@ -159,7 +165,7 @@ Las pistas principales de video y audio rechazan superposiciones. Las pistas de 
 
 ### Snapshots
 
-Cada operación guarda una razón legible y conserva hasta 50 estados recientes del proyecto.
+Cada operación funcional conserva hasta 50 estados recientes del proyecto.
 
 ```text
 clip añadido
@@ -170,7 +176,99 @@ clip eliminado
 estado de pista actualizado
 texto añadido
 texto actualizado
+mezcla de audio actualizada
+efectos visuales actualizados
 ```
+
+## Mezcla de audio
+
+Los clips de audio y los videos con stream de audio admiten:
+
+- ganancia entre -60 dB y +12 dB;
+- paneo estéreo entre izquierda y derecha;
+- silencio individual;
+- fundido de entrada;
+- fundido de salida;
+- normalización opcional;
+- pico objetivo de normalización.
+
+La configuración se guarda como un efecto no destructivo:
+
+```text
+audio-mix
+```
+
+Parámetros:
+
+```text
+gainDb
+pan
+muted
+fadeInUs
+fadeOutUs
+normalize
+normalizationTargetDb
+```
+
+Los fundidos no pueden superar la duración del clip ni sumar más que su duración total.
+
+Cuando todos los valores regresan a sus valores predeterminados, el efecto se elimina para evitar datos que no cambian el resultado.
+
+La aplicación persiste la intención de mezcla. Su reproducción exacta y aplicación sobre el archivo exportado se incorporarán con el compilador de render.
+
+## Efectos y animaciones de video
+
+Propiedades editables:
+
+- posición X e Y;
+- escala X e Y;
+- rotación;
+- opacidad;
+- punto de anclaje.
+
+Presets visuales:
+
+```text
+cinematic
+monochrome
+warm
+cool
+vivid
+soft-blur
+sharpen
+vignette
+```
+
+Animaciones:
+
+```text
+fade-in
+fade-out
+zoom-in
+zoom-out
+pan-left
+pan-right
+```
+
+Curvas:
+
+```text
+linear
+ease-in
+ease-out
+ease-in-out
+```
+
+Los presets se guardan como efectos separados:
+
+```text
+video-style
+video-animation
+```
+
+Seleccionar `none` elimina el efecto correspondiente, pero conserva la transformación del clip.
+
+La vista previa usa CSS para mostrar una aproximación interactiva. El render exacto fotograma por fotograma todavía no está compilado a FFmpeg o a un compositor dedicado.
 
 ## Textos animados
 
@@ -202,7 +300,7 @@ scale-in
 typewriter
 ```
 
-El monitor del Editor previsualiza el texto seleccionado y su animación de entrada. La composición final de estas capas se incorporará en la fase de render y exportación.
+El monitor del Editor previsualiza el texto seleccionado y su animación. La composición final se incorporará en la fase de render y exportación.
 
 ## Audio y silencios
 
@@ -266,8 +364,9 @@ SQLite guarda:
 - proyectos;
 - secuencias;
 - pistas;
-- clips;
+- clips y transformaciones;
 - capas de texto;
+- efectos y parámetros;
 - medios y metadatos;
 - análisis acústicos;
 - planes de reducción;
@@ -289,7 +388,9 @@ Los proyectos archivados son de solo lectura hasta restaurarse.
 - FFmpeg y FFprobe con `shell: false`;
 - rutas de salida confinadas a la caché;
 - texto tratado como contenido, no como HTML;
-- animaciones restringidas a presets conocidos.
+- audio limitado a parámetros numéricos;
+- efectos y animaciones restringidos a presets conocidos;
+- no se aceptan comandos, shaders ni filtros arbitrarios desde el renderer.
 
 ## Estructura
 
@@ -324,11 +425,13 @@ Editar/
 
 - los clips se mueven desde campos numéricos, no mediante arrastrar y soltar;
 - no existe cabezal de reproducción interactivo;
-- la vista previa todavía no reproduce la composición completa;
-- los textos usan una previsualización CSS;
-- no existe todavía mezcla avanzada de audio;
-- no se han incorporado transiciones ni exportación final.
+- no existe reproducción real de la composición completa;
+- la mezcla se guarda, pero todavía no se escucha sobre la composición;
+- los filtros y animaciones se previsualizan mediante CSS;
+- no existen fotogramas clave personalizados;
+- los efectos todavía no se compilan a una cadena final de render;
+- no se han incorporado transiciones, efectos de sonido ni exportación final.
 
 ## Siguiente bloque
 
-**Bloque 15 — Edición y mezcla de audio.**
+**Bloque 17 — Transiciones y efectos de sonido.**
