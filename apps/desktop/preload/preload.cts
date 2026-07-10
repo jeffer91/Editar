@@ -5,7 +5,7 @@ Ruta o ubicación: /apps/desktop/preload/preload.cts
 Función o funciones:
 - Exponer una API limitada y tipada al renderer.
 - Enviar solicitudes únicamente por canales IPC autorizados.
-- Proporcionar edición segura de clips, audio, video, textos y medios.
+- Proporcionar edición segura, transiciones y efectos de sonido.
 ========================================================= */
 
 const { contextBridge, ipcRenderer } = require("electron") as typeof import("electron");
@@ -43,13 +43,18 @@ type RenameProjectInput = import("../shared/project-management-contracts.js").Re
 type SetProjectStatusInput = import("../shared/project-management-contracts.js").SetProjectStatusInput;
 type ProjectListItem = import("../shared/persistence/project-repository.js").ProjectListItem;
 type AddMediaClipRequest = import("../shared/timeline-editing-contracts.js").AddMediaClipRequest;
+type AddSoundEffectRequest = import("../shared/timeline-editing-contracts.js").AddSoundEffectRequest;
 type AddTextClipRequest = import("../shared/timeline-editing-contracts.js").AddTextClipRequest;
 type DeleteClipRequest = import("../shared/timeline-editing-contracts.js").DeleteClipRequest;
+type DeleteSoundEffectRequest = import("../shared/timeline-editing-contracts.js").DeleteSoundEffectRequest;
 type MoveClipRequest = import("../shared/timeline-editing-contracts.js").MoveClipRequest;
+type RemoveTransitionRequest = import("../shared/timeline-editing-contracts.js").RemoveTransitionRequest;
+type SetTransitionRequest = import("../shared/timeline-editing-contracts.js").SetTransitionRequest;
 type SplitClipRequest = import("../shared/timeline-editing-contracts.js").SplitClipRequest;
 type TrimClipRequest = import("../shared/timeline-editing-contracts.js").TrimClipRequest;
 type UpdateClipAudioMixRequest = import("../shared/timeline-editing-contracts.js").UpdateClipAudioMixRequest;
 type UpdateClipVisualRequest = import("../shared/timeline-editing-contracts.js").UpdateClipVisualRequest;
+type UpdateSoundEffectRequest = import("../shared/timeline-editing-contracts.js").UpdateSoundEffectRequest;
 type UpdateTextClipRequest = import("../shared/timeline-editing-contracts.js").UpdateTextClipRequest;
 type UpdateTrackStateRequest = import("../shared/timeline-editing-contracts.js").UpdateTrackStateRequest;
 
@@ -76,6 +81,11 @@ const IPC_CHANNELS = Object.freeze({
   timelineUpdateTextClip: "timeline:update-text-clip",
   timelineUpdateClipAudioMix: "timeline:update-clip-audio-mix",
   timelineUpdateClipVisual: "timeline:update-clip-visual",
+  timelineSetTransition: "timeline:set-transition",
+  timelineRemoveTransition: "timeline:remove-transition",
+  timelineAddSoundEffect: "timeline:add-sound-effect",
+  timelineUpdateSoundEffect: "timeline:update-sound-effect",
+  timelineDeleteSoundEffect: "timeline:delete-sound-effect",
   mediaChooseAndImport: "media:choose-and-import",
   mediaGetEngineStatus: "media:get-engine-status",
   mediaAnalyze: "media:analyze",
@@ -95,11 +105,7 @@ const IPC_CHANNELS = Object.freeze({
 function createRequestEnvelope(): RequestEnvelope {
   const timestamp = Date.now();
   const randomPart = Math.random().toString(36).slice(2, 14);
-
-  return {
-    requestId: `${timestamp.toString(36)}-${randomPart}`,
-    sentAt: timestamp,
-  };
+  return { requestId: `${timestamp.toString(36)}-${randomPart}`, sentAt: timestamp };
 }
 
 function invoke<TResponse, TPayload = undefined>(
@@ -110,7 +116,6 @@ function invoke<TResponse, TPayload = undefined>(
     payload === undefined
       ? createRequestEnvelope()
       : { ...createRequestEnvelope(), payload };
-
   return ipcRenderer.invoke(channel, request) as Promise<IpcResult<TResponse>>;
 }
 
@@ -126,77 +131,47 @@ const bridge: EditarBridge = Object.freeze({
   }),
   projects: Object.freeze({
     list: () => invoke<readonly ProjectListItem[]>(IPC_CHANNELS.projectsList),
-    create: (input: CreateProjectInput) =>
-      invoke<ProjectListItem, CreateProjectInput>(IPC_CHANNELS.projectsCreate, input),
-    open: (input: ProjectIdInput) =>
-      invoke<ProjectDocument, ProjectIdInput>(IPC_CHANNELS.projectsOpen, input),
-    rename: (input: RenameProjectInput) =>
-      invoke<ProjectListItem, RenameProjectInput>(IPC_CHANNELS.projectsRename, input),
-    duplicate: (input: DuplicateProjectInput) =>
-      invoke<ProjectListItem, DuplicateProjectInput>(IPC_CHANNELS.projectsDuplicate, input),
-    setStatus: (input: SetProjectStatusInput) =>
-      invoke<ProjectListItem, SetProjectStatusInput>(IPC_CHANNELS.projectsSetStatus, input),
-    delete: (input: ProjectIdInput) =>
-      invoke<DeleteProjectResult, ProjectIdInput>(IPC_CHANNELS.projectsDelete, input),
+    create: (input: CreateProjectInput) => invoke<ProjectListItem, CreateProjectInput>(IPC_CHANNELS.projectsCreate, input),
+    open: (input: ProjectIdInput) => invoke<ProjectDocument, ProjectIdInput>(IPC_CHANNELS.projectsOpen, input),
+    rename: (input: RenameProjectInput) => invoke<ProjectListItem, RenameProjectInput>(IPC_CHANNELS.projectsRename, input),
+    duplicate: (input: DuplicateProjectInput) => invoke<ProjectListItem, DuplicateProjectInput>(IPC_CHANNELS.projectsDuplicate, input),
+    setStatus: (input: SetProjectStatusInput) => invoke<ProjectListItem, SetProjectStatusInput>(IPC_CHANNELS.projectsSetStatus, input),
+    delete: (input: ProjectIdInput) => invoke<DeleteProjectResult, ProjectIdInput>(IPC_CHANNELS.projectsDelete, input),
   }),
   timeline: Object.freeze({
-    addMediaClip: (input: AddMediaClipRequest) =>
-      invoke<ProjectDocument, AddMediaClipRequest>(IPC_CHANNELS.timelineAddMediaClip, input),
-    moveClip: (input: MoveClipRequest) =>
-      invoke<ProjectDocument, MoveClipRequest>(IPC_CHANNELS.timelineMoveClip, input),
-    trimClip: (input: TrimClipRequest) =>
-      invoke<ProjectDocument, TrimClipRequest>(IPC_CHANNELS.timelineTrimClip, input),
-    splitClip: (input: SplitClipRequest) =>
-      invoke<ProjectDocument, SplitClipRequest>(IPC_CHANNELS.timelineSplitClip, input),
-    deleteClip: (input: DeleteClipRequest) =>
-      invoke<ProjectDocument, DeleteClipRequest>(IPC_CHANNELS.timelineDeleteClip, input),
-    updateTrackState: (input: UpdateTrackStateRequest) =>
-      invoke<ProjectDocument, UpdateTrackStateRequest>(IPC_CHANNELS.timelineUpdateTrackState, input),
-    addTextClip: (input: AddTextClipRequest) =>
-      invoke<ProjectDocument, AddTextClipRequest>(IPC_CHANNELS.timelineAddTextClip, input),
-    updateTextClip: (input: UpdateTextClipRequest) =>
-      invoke<ProjectDocument, UpdateTextClipRequest>(IPC_CHANNELS.timelineUpdateTextClip, input),
-    updateClipAudioMix: (input: UpdateClipAudioMixRequest) =>
-      invoke<ProjectDocument, UpdateClipAudioMixRequest>(
-        IPC_CHANNELS.timelineUpdateClipAudioMix,
-        input,
-      ),
-    updateClipVisual: (input: UpdateClipVisualRequest) =>
-      invoke<ProjectDocument, UpdateClipVisualRequest>(
-        IPC_CHANNELS.timelineUpdateClipVisual,
-        input,
-      ),
+    addMediaClip: (input: AddMediaClipRequest) => invoke<ProjectDocument, AddMediaClipRequest>(IPC_CHANNELS.timelineAddMediaClip, input),
+    moveClip: (input: MoveClipRequest) => invoke<ProjectDocument, MoveClipRequest>(IPC_CHANNELS.timelineMoveClip, input),
+    trimClip: (input: TrimClipRequest) => invoke<ProjectDocument, TrimClipRequest>(IPC_CHANNELS.timelineTrimClip, input),
+    splitClip: (input: SplitClipRequest) => invoke<ProjectDocument, SplitClipRequest>(IPC_CHANNELS.timelineSplitClip, input),
+    deleteClip: (input: DeleteClipRequest) => invoke<ProjectDocument, DeleteClipRequest>(IPC_CHANNELS.timelineDeleteClip, input),
+    updateTrackState: (input: UpdateTrackStateRequest) => invoke<ProjectDocument, UpdateTrackStateRequest>(IPC_CHANNELS.timelineUpdateTrackState, input),
+    addTextClip: (input: AddTextClipRequest) => invoke<ProjectDocument, AddTextClipRequest>(IPC_CHANNELS.timelineAddTextClip, input),
+    updateTextClip: (input: UpdateTextClipRequest) => invoke<ProjectDocument, UpdateTextClipRequest>(IPC_CHANNELS.timelineUpdateTextClip, input),
+    updateClipAudioMix: (input: UpdateClipAudioMixRequest) => invoke<ProjectDocument, UpdateClipAudioMixRequest>(IPC_CHANNELS.timelineUpdateClipAudioMix, input),
+    updateClipVisual: (input: UpdateClipVisualRequest) => invoke<ProjectDocument, UpdateClipVisualRequest>(IPC_CHANNELS.timelineUpdateClipVisual, input),
+    setTransition: (input: SetTransitionRequest) => invoke<ProjectDocument, SetTransitionRequest>(IPC_CHANNELS.timelineSetTransition, input),
+    removeTransition: (input: RemoveTransitionRequest) => invoke<ProjectDocument, RemoveTransitionRequest>(IPC_CHANNELS.timelineRemoveTransition, input),
+    addSoundEffect: (input: AddSoundEffectRequest) => invoke<ProjectDocument, AddSoundEffectRequest>(IPC_CHANNELS.timelineAddSoundEffect, input),
+    updateSoundEffect: (input: UpdateSoundEffectRequest) => invoke<ProjectDocument, UpdateSoundEffectRequest>(IPC_CHANNELS.timelineUpdateSoundEffect, input),
+    deleteSoundEffect: (input: DeleteSoundEffectRequest) => invoke<ProjectDocument, DeleteSoundEffectRequest>(IPC_CHANNELS.timelineDeleteSoundEffect, input),
   }),
   media: Object.freeze({
-    chooseAndImport: (input: ImportMediaInput) =>
-      invoke<MediaImportResult, ImportMediaInput>(IPC_CHANNELS.mediaChooseAndImport, input),
+    chooseAndImport: (input: ImportMediaInput) => invoke<MediaImportResult, ImportMediaInput>(IPC_CHANNELS.mediaChooseAndImport, input),
     getEngineStatus: () => invoke<MediaEngineStatus>(IPC_CHANNELS.mediaGetEngineStatus),
-    analyze: (input: AnalyzeMediaInput) =>
-      invoke<MediaAnalysisRequestResult, AnalyzeMediaInput>(IPC_CHANNELS.mediaAnalyze, input),
-    analyzeAudio: (input: AnalyzeAudioInput) =>
-      invoke<AudioAnalysisRequestResult, AnalyzeAudioInput>(IPC_CHANNELS.mediaAnalyzeAudio, input),
-    reduceSilence: (input: ReduceSilenceInput) =>
-      invoke<SilenceReductionRequestResult, ReduceSilenceInput>(IPC_CHANNELS.mediaReduceSilence, input),
-    generateDerivatives: (input: GenerateMediaDerivativesInput) =>
-      invoke<MediaDerivativeRequestResult, GenerateMediaDerivativesInput>(
-        IPC_CHANNELS.mediaGenerateDerivatives,
-        input,
-      ),
+    analyze: (input: AnalyzeMediaInput) => invoke<MediaAnalysisRequestResult, AnalyzeMediaInput>(IPC_CHANNELS.mediaAnalyze, input),
+    analyzeAudio: (input: AnalyzeAudioInput) => invoke<AudioAnalysisRequestResult, AnalyzeAudioInput>(IPC_CHANNELS.mediaAnalyzeAudio, input),
+    reduceSilence: (input: ReduceSilenceInput) => invoke<SilenceReductionRequestResult, ReduceSilenceInput>(IPC_CHANNELS.mediaReduceSilence, input),
+    generateDerivatives: (input: GenerateMediaDerivativesInput) => invoke<MediaDerivativeRequestResult, GenerateMediaDerivativesInput>(IPC_CHANNELS.mediaGenerateDerivatives, input),
     getCacheStatus: () => invoke<MediaCacheStatus>(IPC_CHANNELS.mediaGetCacheStatus),
     clearCache: () => invoke<MediaCacheClearResult>(IPC_CHANNELS.mediaClearCache),
   }),
   jobs: Object.freeze({
     getSnapshot: () => invoke<JobQueueSnapshot>(IPC_CHANNELS.jobsGetSnapshot),
-    enqueueDiagnostic: (input: ProjectJobInput) =>
-      invoke<JobActionResult, ProjectJobInput>(IPC_CHANNELS.jobsEnqueueDiagnostic, input),
-    pause: (input: JobIdInput) =>
-      invoke<JobActionResult, JobIdInput>(IPC_CHANNELS.jobsPause, input),
-    resume: (input: JobIdInput) =>
-      invoke<JobActionResult, JobIdInput>(IPC_CHANNELS.jobsResume, input),
-    cancel: (input: JobIdInput) =>
-      invoke<JobActionResult, JobIdInput>(IPC_CHANNELS.jobsCancel, input),
-    retry: (input: JobIdInput) =>
-      invoke<JobActionResult, JobIdInput>(IPC_CHANNELS.jobsRetry, input),
+    enqueueDiagnostic: (input: ProjectJobInput) => invoke<JobActionResult, ProjectJobInput>(IPC_CHANNELS.jobsEnqueueDiagnostic, input),
+    pause: (input: JobIdInput) => invoke<JobActionResult, JobIdInput>(IPC_CHANNELS.jobsPause, input),
+    resume: (input: JobIdInput) => invoke<JobActionResult, JobIdInput>(IPC_CHANNELS.jobsResume, input),
+    cancel: (input: JobIdInput) => invoke<JobActionResult, JobIdInput>(IPC_CHANNELS.jobsCancel, input),
+    retry: (input: JobIdInput) => invoke<JobActionResult, JobIdInput>(IPC_CHANNELS.jobsRetry, input),
   }),
 });
 
