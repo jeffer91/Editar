@@ -3,9 +3,9 @@ Nombre completo: ProjectMediaPanel.tsx
 Ruta o ubicación: /apps/desktop/renderer/src/components/media/ProjectMediaPanel.tsx
 
 Función o funciones:
-- Mostrar recursos y metadatos técnicos reales.
-- Informar disponibilidad de FFprobe y estado de análisis.
-- Permitir volver a analizar recursos pendientes o fallidos.
+- Mostrar recursos, metadatos y derivados optimizados.
+- Previsualizar miniaturas y formas de onda mediante protocolo interno.
+- Permitir analizar y optimizar recursos sin exponer rutas.
 ========================================================= */
 
 import { useMemo, useState } from "react";
@@ -15,6 +15,10 @@ import type {
   MediaKind,
   ProjectDocument,
 } from "../../../../shared/domain";
+import {
+  createDerivativeUrl,
+  type GeneratedDerivativeType,
+} from "../../../../shared/media-cache-contracts";
 import type { MediaEngineStatus } from "../../../../shared/media-engine-contracts";
 import type { MediaImportResult } from "../../../../shared/media-import-contracts";
 import { AppIcon } from "../ui/AppIcon";
@@ -28,12 +32,17 @@ interface ProjectMediaPanelProps {
   readonly lastResult: MediaImportResult | null;
   readonly engineStatus: MediaEngineStatus | null;
   readonly analyzingMediaId: EntityId<"media"> | null;
+  readonly optimizingMediaId: EntityId<"media"> | null;
   readonly analysisMessage: string;
   readonly analysisErrorMessage: string;
+  readonly cacheMessage: string;
+  readonly cacheErrorMessage: string;
   readonly onImport: () => void;
   readonly onAnalyze: (mediaId: EntityId<"media">) => void;
+  readonly onOptimize: (mediaId: EntityId<"media">) => void;
   readonly onClearResult: () => void;
   readonly onClearAnalysisMessages: () => void;
+  readonly onClearCacheMessages: () => void;
 }
 
 const filterLabels: Readonly<Record<MediaFilter, string>> = Object.freeze({
@@ -42,6 +51,13 @@ const filterLabels: Readonly<Record<MediaFilter, string>> = Object.freeze({
   audio: "Audio",
   image: "Imagen",
 });
+
+const derivativeLabels: Readonly<Record<GeneratedDerivativeType, string>> =
+  Object.freeze({
+    proxy: "Proxy",
+    thumbnail: "Miniatura",
+    waveform: "Onda",
+  });
 
 function formatBytes(value: number): string {
   if (value < 1024) {
@@ -102,24 +118,112 @@ function iconForKind(kind: MediaKind): "video" | "audio" | "library" {
   return kind === "video" ? "video" : kind === "audio" ? "audio" : "library";
 }
 
+function expectedDerivativeTypes(
+  asset: MediaAsset,
+): readonly GeneratedDerivativeType[] {
+  if (asset.inspection.status !== "ready" || !asset.metadata) {
+    return Object.freeze([]);
+  }
+
+  if (asset.metadata.kind === "image") {
+    return Object.freeze(["thumbnail"]);
+  }
+
+  if (asset.metadata.kind === "audio") {
+    return Object.freeze(["waveform"]);
+  }
+
+  return Object.freeze(
+    asset.metadata.audio
+      ? ["proxy", "thumbnail", "waveform"]
+      : ["proxy", "thumbnail"],
+  );
+}
+
+function MediaPreview({ asset }: { readonly asset: MediaAsset }): React.JSX.Element {
+  const previewType = asset.kind === "audio" ? "waveform" : "thumbnail";
+  const derivative = asset.derivatives.find(
+    (candidate) => candidate.type === previewType,
+  );
+
+  return (
+    <span
+      className={`media-asset-preview ${previewType === "waveform" ? "media-asset-preview--waveform" : ""}`}
+    >
+      {derivative ? (
+        <img
+          src={createDerivativeUrl(derivative.id)}
+          alt={previewType === "waveform" ? "Forma de onda" : "Miniatura"}
+          loading="lazy"
+        />
+      ) : (
+        <span className="media-asset-preview__kind">
+          <AppIcon name={iconForKind(asset.kind)} size={19} />
+        </span>
+      )}
+    </span>
+  );
+}
+
+function DerivativeChips({ asset }: { readonly asset: MediaAsset }): React.JSX.Element | null {
+  const expected = expectedDerivativeTypes(asset);
+
+  if (expected.length === 0) {
+    return null;
+  }
+
+  return (
+    <span className="media-derivative-chips">
+      {expected.map((type) => {
+        const ready = asset.derivatives.some((derivative) => derivative.type === type);
+
+        return (
+          <span
+            className={`media-derivative-chip media-derivative-chip--${ready ? "ready" : "missing"}`}
+            key={type}
+          >
+            {derivativeLabels[type]} {ready ? "✓" : "pendiente"}
+          </span>
+        );
+      })}
+    </span>
+  );
+}
+
 function MediaAssetItem({
   asset,
   ffprobeAvailable,
+  ffmpegAvailable,
   analyzing,
+  optimizing,
   projectArchived,
   onAnalyze,
+  onOptimize,
 }: {
   readonly asset: MediaAsset;
   readonly ffprobeAvailable: boolean;
+  readonly ffmpegAvailable: boolean;
   readonly analyzing: boolean;
+  readonly optimizing: boolean;
   readonly projectArchived: boolean;
   readonly onAnalyze: (mediaId: EntityId<"media">) => void;
+  readonly onOptimize: (mediaId: EntityId<"media">) => void;
 }): React.JSX.Element {
   const canAnalyze =
     ffprobeAvailable &&
     !projectArchived &&
     asset.availability === "online" &&
     asset.inspection.status !== "ready";
+  const expected = expectedDerivativeTypes(asset);
+  const missingCount = expected.filter(
+    (type) => !asset.derivatives.some((derivative) => derivative.type === type),
+  ).length;
+  const canOptimize =
+    ffmpegAvailable &&
+    !projectArchived &&
+    asset.availability === "online" &&
+    asset.inspection.status === "ready" &&
+    missingCount > 0;
   const inspectionTitle =
     asset.inspection.status === "pending"
       ? ffprobeAvailable
@@ -128,13 +232,12 @@ function MediaAssetItem({
       : asset.inspection.error;
 
   return (
-    <article className="media-asset-item media-asset-item--technical" title={asset.sourcePath}>
-      <span className={`media-asset-item__icon media-asset-item__icon--${asset.kind}`}>
-        <AppIcon name={iconForKind(asset.kind)} size={18} />
-      </span>
+    <article className="media-asset-item media-asset-item--technical media-asset-item--with-preview">
+      <MediaPreview asset={asset} />
       <span className="media-asset-item__content">
         <strong>{asset.fileName}</strong>
         <small>{metadataSummary(asset)}</small>
+        <DerivativeChips asset={asset} />
         {asset.inspection.status === "failed" && asset.inspection.error ? (
           <em>{asset.inspection.error}</em>
         ) : null}
@@ -160,6 +263,16 @@ function MediaAssetItem({
             {analyzing ? "Encolando…" : "Analizar"}
           </button>
         ) : null}
+        {canOptimize ? (
+          <button
+            className="media-optimize-button"
+            type="button"
+            disabled={optimizing}
+            onClick={() => onOptimize(asset.id)}
+          >
+            {optimizing ? "Encolando…" : `Optimizar ${missingCount}`}
+          </button>
+        ) : null}
       </span>
     </article>
   );
@@ -172,15 +285,21 @@ function ProjectMediaPanel({
   lastResult,
   engineStatus,
   analyzingMediaId,
+  optimizingMediaId,
   analysisMessage,
   analysisErrorMessage,
+  cacheMessage,
+  cacheErrorMessage,
   onImport,
   onAnalyze,
+  onOptimize,
   onClearResult,
   onClearAnalysisMessages,
+  onClearCacheMessages,
 }: ProjectMediaPanelProps): React.JSX.Element {
   const [filter, setFilter] = useState<MediaFilter>("all");
   const ffprobeAvailable = engineStatus?.ffprobe.available ?? false;
+  const ffmpegAvailable = engineStatus?.ffmpeg.available ?? false;
   const counts = useMemo(
     () => ({
       all: project.media.length,
@@ -206,10 +325,10 @@ function ProjectMediaPanel({
           <h2>Medios</h2>
         </div>
         <span
-          className={`media-engine-mini media-engine-mini--${ffprobeAvailable ? "ready" : "missing"}`}
-          title={engineStatus?.ffprobe.version ?? engineStatus?.ffprobe.error ?? "Comprobando FFprobe"}
+          className={`media-engine-mini media-engine-mini--${ffmpegAvailable && ffprobeAvailable ? "ready" : "missing"}`}
+          title={engineStatus?.ffmpeg.version ?? engineStatus?.ffmpeg.error ?? "Comprobando motores"}
         >
-          FFprobe {ffprobeAvailable ? "listo" : "no disponible"}
+          Motores {ffmpegAvailable && ffprobeAvailable ? "listos" : "incompletos"}
         </span>
       </div>
 
@@ -259,6 +378,19 @@ function ProjectMediaPanel({
         </div>
       ) : null}
 
+      {cacheMessage || cacheErrorMessage ? (
+        <div
+          className={`media-import-message ${cacheErrorMessage ? "media-import-message--error" : ""}`}
+          role={cacheErrorMessage ? "alert" : "status"}
+        >
+          <button type="button" aria-label="Cerrar mensaje" onClick={onClearCacheMessages}>
+            ×
+          </button>
+          <strong>{cacheErrorMessage ? "No se pudo optimizar" : "Optimización solicitada"}</strong>
+          <small>{cacheErrorMessage || cacheMessage}</small>
+        </div>
+      ) : null}
+
       {lastResult && !lastResult.summary.canceled ? (
         <div className="media-import-message" role="status">
           <button type="button" aria-label="Cerrar resumen" onClick={onClearResult}>
@@ -284,10 +416,13 @@ function ProjectMediaPanel({
             <MediaAssetItem
               asset={asset}
               ffprobeAvailable={ffprobeAvailable}
+              ffmpegAvailable={ffmpegAvailable}
               analyzing={analyzingMediaId === asset.id}
+              optimizing={optimizingMediaId === asset.id}
               projectArchived={project.project.status === "archived"}
               key={asset.id}
               onAnalyze={onAnalyze}
+              onOptimize={onOptimize}
             />
           ))
         ) : (
@@ -299,7 +434,7 @@ function ProjectMediaPanel({
                 : `No hay recursos de ${filterLabels[filter].toLowerCase()}`}
             </strong>
             <small>
-              Los originales no se copian ni se modifican durante el análisis.
+              Los originales no se copian ni se modifican durante el procesamiento.
             </small>
           </div>
         )}
@@ -308,4 +443,11 @@ function ProjectMediaPanel({
   );
 }
 
-export { ProjectMediaPanel, type ProjectMediaPanelProps };
+export {
+  DerivativeChips,
+  MediaAssetItem,
+  MediaPreview,
+  ProjectMediaPanel,
+  expectedDerivativeTypes,
+  type ProjectMediaPanelProps,
+};
