@@ -12,7 +12,7 @@ Función o funciones:
 
 ## Estado
 
-**EN VERIFICACIÓN**
+**COMPLETADO Y VERIFICADO**
 
 ## Objetivo
 
@@ -25,10 +25,25 @@ Establecer una comunicación segura entre React, preload y Electron mediante can
 - Identificador y fecha para cada solicitud.
 - Validación de estructura y antigüedad.
 - Validación del origen del remitente.
+- Restricción exacta del renderer en producción.
 - Bloqueo de ventanas externas, navegación y redirecciones.
 - Política de seguridad de contenido.
 - Prueba visual de conectividad y latencia.
-- Pruebas automáticas de validación IPC.
+- Pruebas automáticas de validación y fuentes confiables.
+
+## Verificación realizada
+
+GitHub Actions confirmó correctamente:
+
+1. Instalación de dependencias.
+2. Limpieza de compilaciones anteriores.
+3. Typecheck del renderer.
+4. Typecheck de Electron.
+5. Compilación del renderer.
+6. Compilación de Electron.
+7. Pruebas de solicitudes válidas, inválidas y expiradas.
+8. Pruebas de origen autorizado en desarrollo.
+9. Pruebas de archivo autorizado en producción.
 
 ## Criterios de aprobación
 
@@ -38,6 +53,7 @@ Establecer una comunicación segura entre React, preload y Electron mediante can
 - Las solicitudes inválidas son rechazadas.
 - Las solicitudes expiradas son rechazadas.
 - Los remitentes no confiables son bloqueados.
+- Producción solo acepta el `index.html` compilado autorizado.
 - La aplicación impide ventanas y navegaciones externas.
 - GitHub Actions ejecuta las pruebas IPC correctamente.
 
