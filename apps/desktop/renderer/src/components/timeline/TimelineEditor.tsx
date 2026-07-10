@@ -5,7 +5,7 @@ Ruta o ubicación: /apps/desktop/renderer/src/components/timeline/TimelineEditor
 Función o funciones:
 - Representar clips con posición y duración proporcionales.
 - Permitir seleccionar clips y controlar estados de pistas.
-- Insertar plantillas de títulos y subtítulos animados.
+- Insertar medios y plantillas de textos animados.
 ========================================================= */
 
 import { useMemo, useState } from "react";
@@ -25,6 +25,7 @@ interface TimelineEditorProps {
     trackId: EntityId<"track">,
     state: { readonly muted?: boolean; readonly hidden?: boolean; readonly locked?: boolean },
   ) => void;
+  readonly onAddMedia: (mediaId: EntityId<"media">) => void;
   readonly onAddText: (templateId: TextTemplateId) => void;
 }
 
@@ -59,9 +60,11 @@ function TimelineEditor({
   busy,
   onSelectClip,
   onUpdateTrack,
+  onAddMedia,
   onAddText,
 }: TimelineEditorProps): React.JSX.Element {
   const [zoom, setZoom] = useState(1);
+  const [selectedMediaId, setSelectedMediaId] = useState("");
   const sequence =
     project.sequences.find(
       (candidate) => candidate.id === project.project.mainSequenceId,
@@ -74,6 +77,10 @@ function TimelineEditor({
         .sort((left, right) => left.order - right.order),
     [project.tracks, sequence?.id],
   );
+  const availableMedia = project.media.filter(
+    (asset) => asset.inspection.status === "ready" && asset.availability === "online",
+  );
+  const resolvedMediaId = selectedMediaId || availableMedia[0]?.id || "";
   const baseDurationUs = Math.max(sequence?.durationUs ?? 0, 20_000_000);
   const visibleDurationUs = Math.max(5_000_000, Math.round(baseDurationUs / zoom));
   const ticks = Array.from({ length: 6 }, (_, index) =>
@@ -90,6 +97,31 @@ function TimelineEditor({
           <small>
             {project.clips.length} clips · {formatTime(sequence?.durationUs ?? 0)}
           </small>
+        </div>
+
+        <div className="timeline-editor__media-tools">
+          <select
+            aria-label="Medio para añadir"
+            value={resolvedMediaId}
+            disabled={availableMedia.length === 0 || archived || busy}
+            onChange={(event) => setSelectedMediaId(event.target.value)}
+          >
+            {availableMedia.length === 0 ? (
+              <option value="">No hay medios analizados</option>
+            ) : null}
+            {availableMedia.map((asset) => (
+              <option value={asset.id} key={asset.id}>
+                {asset.fileName}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            disabled={!resolvedMediaId || archived || busy}
+            onClick={() => onAddMedia(resolvedMediaId as EntityId<"media">)}
+          >
+            + Añadir medio
+          </button>
         </div>
 
         <div className="timeline-editor__text-tools" aria-label="Añadir texto">
