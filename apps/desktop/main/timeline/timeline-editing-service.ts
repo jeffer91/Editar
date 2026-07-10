@@ -3,7 +3,7 @@ Nombre completo: timeline-editing-service.ts
 Ruta o ubicación: /apps/desktop/main/timeline/timeline-editing-service.ts
 
 Función o funciones:
-- Coordinar operaciones funcionales de clips, pistas y textos.
+- Coordinar operaciones de clips, pistas, textos, audio y video.
 - Seleccionar pistas y posiciones predeterminadas.
 - Persistir cada edición con snapshot recuperable.
 ========================================================= */
@@ -18,6 +18,8 @@ import {
   requireTextLayerForClip,
   splitClip,
   trimClip,
+  updateClipAudioMix,
+  updateClipVisualProperties,
   updateTextLayerForClip,
   updateTrackState,
   type EntityId,
@@ -32,6 +34,8 @@ import type {
   MoveClipRequest,
   SplitClipRequest,
   TrimClipRequest,
+  UpdateClipAudioMixRequest,
+  UpdateClipVisualRequest,
   UpdateTextClipRequest,
   UpdateTrackStateRequest,
 } from "../../shared/timeline-editing-contracts.js";
@@ -200,6 +204,44 @@ class TimelineEditingService {
     });
 
     return this.save(updated, "texto actualizado");
+  }
+
+  async updateClipAudioMix(
+    input: UpdateClipAudioMixRequest,
+  ): Promise<ProjectDocument> {
+    const document = await this.requireDocument(input.projectId);
+    const updated = updateClipAudioMix(document, {
+      clipId: input.clipId,
+      gainDb: input.gainDb,
+      pan: input.pan,
+      muted: input.muted,
+      fadeInUs: millisecondsToMicroseconds(input.fadeInMs, "fadeInMs"),
+      fadeOutUs: millisecondsToMicroseconds(input.fadeOutMs, "fadeOutMs"),
+      normalize: input.normalize,
+      normalizationTargetDb: input.normalizationTargetDb,
+    });
+
+    return this.save(updated, "mezcla de audio actualizada");
+  }
+
+  async updateClipVisual(
+    input: UpdateClipVisualRequest,
+  ): Promise<ProjectDocument> {
+    const document = await this.requireDocument(input.projectId);
+    const updated = updateClipVisualProperties(document, {
+      clipId: input.clipId,
+      transform: input.transform,
+      stylePresetId: input.stylePresetId,
+      styleIntensity: input.styleIntensity,
+      animationPresetId: input.animationPresetId,
+      animationDurationUs: millisecondsToMicroseconds(
+        input.animationDurationMs,
+        "animationDurationMs",
+      ),
+      animationEasing: input.animationEasing,
+    });
+
+    return this.save(updated, "efectos visuales actualizados");
   }
 
   private animationPatch(
