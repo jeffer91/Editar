@@ -1,0 +1,16 @@
+{
+  /* =========================================================
+  Nombre completo: tsconfig.json
+  Ruta o ubicación: /tsconfig.json
+
+  Función o funciones:
+  - Centralizar las referencias de configuración TypeScript.
+  - Separar la compilación del renderer y de Electron.
+  - Evitar mezclar APIs del navegador con APIs de Node.js.
+  ========================================================= */
+  "files": [],
+  "references": [
+    { "path": "./tsconfig.renderer.json" },
+    { "path": "./tsconfig.electron.json" }
+  ]
+}
