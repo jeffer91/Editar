@@ -5,7 +5,7 @@ Ruta o ubicación: /apps/desktop/renderer/src/App.tsx
 Función o funciones:
 - Coordinar navegación, estado del sistema y proyecto activo.
 - Renderizar el shell visual compartido.
-- Abrir proyectos seleccionados dentro del editor.
+- Mantener actualizado el proyecto después de importar medios.
 ========================================================= */
 
 import { useState } from "react";
@@ -40,6 +40,7 @@ function App(): React.JSX.Element {
           <EditorScreen
             project={activeProject}
             onChooseProject={() => navigate("projects")}
+            onProjectChange={setActiveProject}
           />
         );
       case "library":
