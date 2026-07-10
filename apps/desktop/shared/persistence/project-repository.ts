@@ -10,6 +10,7 @@ Función o funciones:
 
 import type {
   EntityId,
+  ProjectAspectRatio,
   ProjectDocument,
   ProjectStatus,
 } from "../domain/index.js";
@@ -19,10 +20,15 @@ interface ProjectListItem {
   readonly name: string;
   readonly status: ProjectStatus;
   readonly schemaVersion: number;
+  readonly createdAt: string;
   readonly updatedAt: string;
   readonly mediaCount: number;
   readonly clipCount: number;
   readonly durationUs: number;
+  readonly width: number;
+  readonly height: number;
+  readonly fps: number;
+  readonly aspectRatio: ProjectAspectRatio;
 }
 
 interface SaveProjectOptions {
