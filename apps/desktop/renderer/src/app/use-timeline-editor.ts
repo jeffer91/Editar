@@ -3,7 +3,7 @@ Nombre completo: use-timeline-editor.ts
 Ruta o ubicación: /apps/desktop/renderer/src/app/use-timeline-editor.ts
 
 Función o funciones:
-- Ejecutar operaciones de clips, pistas, textos, audio y video desde React.
+- Ejecutar operaciones de clips, audio, video, transiciones y sonidos desde React.
 - Mantener selección, operación activa, mensajes y errores.
 - Entregar siempre el ProjectDocument persistido por main.
 ========================================================= */
@@ -13,9 +13,12 @@ import type {
   AnimationEasing,
   EntityId,
   ProjectDocument,
+  SoundEffectPresetId,
   TextAnimationPresetId,
   TextStyle,
   TextTemplateId,
+  TransitionAlignment,
+  TransitionPresetId,
   VideoAnimationPresetId,
   VideoStylePresetId,
 } from "../../../shared/domain";
@@ -31,7 +34,20 @@ type TimelineOperation =
   | "add-text"
   | "update-text"
   | "audio-mix"
-  | "visual";
+  | "visual"
+  | "transition"
+  | "sound-effect";
+
+interface SoundEffectFormInput {
+  readonly sequenceId: EntityId<"sequence">;
+  readonly presetId: SoundEffectPresetId;
+  readonly startMs: number;
+  readonly durationMs: number;
+  readonly gainDb: number;
+  readonly pan: number;
+  readonly fadeInMs: number;
+  readonly fadeOutMs: number;
+}
 
 interface TimelineEditorState {
   readonly selectedClipId: EntityId<"clip"> | null;
@@ -39,89 +55,26 @@ interface TimelineEditorState {
   readonly message: string;
   readonly errorMessage: string;
   readonly selectClip: (clipId: EntityId<"clip"> | null) => void;
-  readonly addMedia: (
-    projectId: EntityId<"project">,
-    mediaId: EntityId<"media">,
-  ) => Promise<ProjectDocument | null>;
-  readonly move: (
-    projectId: EntityId<"project">,
-    clipId: EntityId<"clip">,
-    trackId: EntityId<"track">,
-    timelineStartMs: number,
-  ) => Promise<ProjectDocument | null>;
-  readonly trim: (
-    projectId: EntityId<"project">,
-    clipId: EntityId<"clip">,
-    timelineStartMs: number,
-    durationMs: number,
-    sourceStartMs?: number,
-  ) => Promise<ProjectDocument | null>;
-  readonly split: (
-    projectId: EntityId<"project">,
-    clipId: EntityId<"clip">,
-    splitAtMs: number,
-  ) => Promise<ProjectDocument | null>;
-  readonly remove: (
-    projectId: EntityId<"project">,
-    clipId: EntityId<"clip">,
-  ) => Promise<ProjectDocument | null>;
-  readonly setTrackState: (
-    projectId: EntityId<"project">,
-    trackId: EntityId<"track">,
-    state: {
-      readonly muted?: boolean;
-      readonly hidden?: boolean;
-      readonly locked?: boolean;
-    },
-  ) => Promise<ProjectDocument | null>;
-  readonly addText: (
-    projectId: EntityId<"project">,
-    templateId: TextTemplateId,
-    content: string,
-  ) => Promise<ProjectDocument | null>;
-  readonly updateText: (
-    projectId: EntityId<"project">,
-    clipId: EntityId<"clip">,
-    input: {
-      readonly content: string;
-      readonly style?: Partial<TextStyle>;
-      readonly entrancePresetId?: TextAnimationPresetId | null;
-      readonly entranceDurationMs?: number;
-      readonly exitPresetId?: TextAnimationPresetId | null;
-      readonly exitDurationMs?: number;
-    },
-  ) => Promise<ProjectDocument | null>;
-  readonly updateAudioMix: (
-    projectId: EntityId<"project">,
-    clipId: EntityId<"clip">,
-    input: {
-      readonly gainDb: number;
-      readonly pan: number;
-      readonly muted: boolean;
-      readonly fadeInMs: number;
-      readonly fadeOutMs: number;
-      readonly normalize: boolean;
-      readonly normalizationTargetDb: number;
-    },
-  ) => Promise<ProjectDocument | null>;
-  readonly updateVisual: (
-    projectId: EntityId<"project">,
-    clipId: EntityId<"clip">,
-    input: {
-      readonly transform: ClipTransformPatch;
-      readonly stylePresetId: VideoStylePresetId;
-      readonly styleIntensity: number;
-      readonly animationPresetId: VideoAnimationPresetId;
-      readonly animationDurationMs: number;
-      readonly animationEasing: AnimationEasing;
-    },
-  ) => Promise<ProjectDocument | null>;
+  readonly addMedia: (projectId: EntityId<"project">, mediaId: EntityId<"media">) => Promise<ProjectDocument | null>;
+  readonly move: (projectId: EntityId<"project">, clipId: EntityId<"clip">, trackId: EntityId<"track">, timelineStartMs: number) => Promise<ProjectDocument | null>;
+  readonly trim: (projectId: EntityId<"project">, clipId: EntityId<"clip">, timelineStartMs: number, durationMs: number, sourceStartMs?: number) => Promise<ProjectDocument | null>;
+  readonly split: (projectId: EntityId<"project">, clipId: EntityId<"clip">, splitAtMs: number) => Promise<ProjectDocument | null>;
+  readonly remove: (projectId: EntityId<"project">, clipId: EntityId<"clip">) => Promise<ProjectDocument | null>;
+  readonly setTrackState: (projectId: EntityId<"project">, trackId: EntityId<"track">, state: { readonly muted?: boolean; readonly hidden?: boolean; readonly locked?: boolean }) => Promise<ProjectDocument | null>;
+  readonly addText: (projectId: EntityId<"project">, templateId: TextTemplateId, content: string) => Promise<ProjectDocument | null>;
+  readonly updateText: (projectId: EntityId<"project">, clipId: EntityId<"clip">, input: { readonly content: string; readonly style?: Partial<TextStyle>; readonly entrancePresetId?: TextAnimationPresetId | null; readonly entranceDurationMs?: number; readonly exitPresetId?: TextAnimationPresetId | null; readonly exitDurationMs?: number }) => Promise<ProjectDocument | null>;
+  readonly updateAudioMix: (projectId: EntityId<"project">, clipId: EntityId<"clip">, input: { readonly gainDb: number; readonly pan: number; readonly muted: boolean; readonly fadeInMs: number; readonly fadeOutMs: number; readonly normalize: boolean; readonly normalizationTargetDb: number }) => Promise<ProjectDocument | null>;
+  readonly updateVisual: (projectId: EntityId<"project">, clipId: EntityId<"clip">, input: { readonly transform: ClipTransformPatch; readonly stylePresetId: VideoStylePresetId; readonly styleIntensity: number; readonly animationPresetId: VideoAnimationPresetId; readonly animationDurationMs: number; readonly animationEasing: AnimationEasing }) => Promise<ProjectDocument | null>;
+  readonly setTransition: (projectId: EntityId<"project">, input: { readonly fromClipId: EntityId<"clip">; readonly toClipId: EntityId<"clip">; readonly presetId: TransitionPresetId; readonly durationMs: number; readonly alignment: TransitionAlignment }) => Promise<ProjectDocument | null>;
+  readonly removeTransition: (projectId: EntityId<"project">, transitionId: EntityId<"transition">) => Promise<ProjectDocument | null>;
+  readonly addSoundEffect: (projectId: EntityId<"project">, input: SoundEffectFormInput) => Promise<ProjectDocument | null>;
+  readonly updateSoundEffect: (projectId: EntityId<"project">, effectId: EntityId<"effect">, input: SoundEffectFormInput) => Promise<ProjectDocument | null>;
+  readonly deleteSoundEffect: (projectId: EntityId<"project">, effectId: EntityId<"effect">) => Promise<ProjectDocument | null>;
   readonly clearMessages: () => void;
 }
 
 function useTimelineEditor(): TimelineEditorState {
-  const [selectedClipId, setSelectedClipId] =
-    useState<EntityId<"clip"> | null>(null);
+  const [selectedClipId, setSelectedClipId] = useState<EntityId<"clip"> | null>(null);
   const [operation, setOperation] = useState<TimelineOperation | null>(null);
   const [message, setMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
@@ -129,26 +82,19 @@ function useTimelineEditor(): TimelineEditorState {
   const run = useCallback(
     async (
       activeOperation: TimelineOperation,
-      request: () => Promise<
-        Awaited<ReturnType<typeof window.editar.timeline.addMediaClip>>
-      >,
+      request: () => Promise<Awaited<ReturnType<typeof window.editar.timeline.addMediaClip>>>,
       successMessage: string,
     ): Promise<ProjectDocument | null> => {
       setOperation(activeOperation);
       setMessage("");
       setErrorMessage("");
-
       try {
         const result = await request();
         if (!result.ok) throw new Error(result.error.message);
         setMessage(successMessage);
         return result.data;
       } catch (error) {
-        setErrorMessage(
-          error instanceof Error
-            ? error.message
-            : "No fue posible guardar la edición.",
-        );
+        setErrorMessage(error instanceof Error ? error.message : "No fue posible guardar la edición.");
         return null;
       } finally {
         setOperation(null);
@@ -163,107 +109,25 @@ function useTimelineEditor(): TimelineEditorState {
     message,
     errorMessage,
     selectClip: setSelectedClipId,
-    addMedia: (projectId, mediaId) =>
-      run(
-        "add-media",
-        () => window.editar.timeline.addMediaClip({ projectId, mediaId }),
-        "El medio fue añadido al final de la pista.",
-      ),
-    move: (projectId, clipId, trackId, timelineStartMs) =>
-      run(
-        "move",
-        () =>
-          window.editar.timeline.moveClip({
-            projectId,
-            clipId,
-            trackId,
-            timelineStartMs,
-          }),
-        "El clip fue movido.",
-      ),
-    trim: (projectId, clipId, timelineStartMs, durationMs, sourceStartMs) =>
-      run(
-        "trim",
-        () =>
-          window.editar.timeline.trimClip({
-            projectId,
-            clipId,
-            timelineStartMs,
-            durationMs,
-            sourceStartMs,
-          }),
-        "El clip fue recortado.",
-      ),
-    split: (projectId, clipId, splitAtMs) =>
-      run(
-        "split",
-        () => window.editar.timeline.splitClip({ projectId, clipId, splitAtMs }),
-        "El clip fue dividido.",
-      ),
+    addMedia: (projectId, mediaId) => run("add-media", () => window.editar.timeline.addMediaClip({ projectId, mediaId }), "El medio fue añadido al final de la pista."),
+    move: (projectId, clipId, trackId, timelineStartMs) => run("move", () => window.editar.timeline.moveClip({ projectId, clipId, trackId, timelineStartMs }), "El clip fue movido."),
+    trim: (projectId, clipId, timelineStartMs, durationMs, sourceStartMs) => run("trim", () => window.editar.timeline.trimClip({ projectId, clipId, timelineStartMs, durationMs, sourceStartMs }), "El clip fue recortado."),
+    split: (projectId, clipId, splitAtMs) => run("split", () => window.editar.timeline.splitClip({ projectId, clipId, splitAtMs }), "El clip fue dividido."),
     remove: async (projectId, clipId) => {
-      const document = await run(
-        "delete",
-        () => window.editar.timeline.deleteClip({ projectId, clipId }),
-        "El clip fue eliminado.",
-      );
+      const document = await run("delete", () => window.editar.timeline.deleteClip({ projectId, clipId }), "El clip fue eliminado.");
       if (document) setSelectedClipId(null);
       return document;
     },
-    setTrackState: (projectId, trackId, state) =>
-      run(
-        "track",
-        () =>
-          window.editar.timeline.updateTrackState({
-            projectId,
-            trackId,
-            ...state,
-          }),
-        "La pista fue actualizada.",
-      ),
-    addText: (projectId, templateId, content) =>
-      run(
-        "add-text",
-        () =>
-          window.editar.timeline.addTextClip({
-            projectId,
-            templateId,
-            content,
-          }),
-        "El texto animado fue añadido.",
-      ),
-    updateText: (projectId, clipId, input) =>
-      run(
-        "update-text",
-        () =>
-          window.editar.timeline.updateTextClip({
-            projectId,
-            clipId,
-            ...input,
-          }),
-        "El texto fue actualizado.",
-      ),
-    updateAudioMix: (projectId, clipId, input) =>
-      run(
-        "audio-mix",
-        () =>
-          window.editar.timeline.updateClipAudioMix({
-            projectId,
-            clipId,
-            ...input,
-          }),
-        "La mezcla de audio fue actualizada.",
-      ),
-    updateVisual: (projectId, clipId, input) =>
-      run(
-        "visual",
-        () =>
-          window.editar.timeline.updateClipVisual({
-            projectId,
-            clipId,
-            ...input,
-          }),
-        "Los efectos visuales fueron actualizados.",
-      ),
+    setTrackState: (projectId, trackId, state) => run("track", () => window.editar.timeline.updateTrackState({ projectId, trackId, ...state }), "La pista fue actualizada."),
+    addText: (projectId, templateId, content) => run("add-text", () => window.editar.timeline.addTextClip({ projectId, templateId, content }), "El texto animado fue añadido."),
+    updateText: (projectId, clipId, input) => run("update-text", () => window.editar.timeline.updateTextClip({ projectId, clipId, ...input }), "El texto fue actualizado."),
+    updateAudioMix: (projectId, clipId, input) => run("audio-mix", () => window.editar.timeline.updateClipAudioMix({ projectId, clipId, ...input }), "La mezcla de audio fue actualizada."),
+    updateVisual: (projectId, clipId, input) => run("visual", () => window.editar.timeline.updateClipVisual({ projectId, clipId, ...input }), "Los efectos visuales fueron actualizados."),
+    setTransition: (projectId, input) => run("transition", () => window.editar.timeline.setTransition({ projectId, ...input }), "La transición fue guardada."),
+    removeTransition: (projectId, transitionId) => run("transition", () => window.editar.timeline.removeTransition({ projectId, transitionId }), "La transición fue eliminada."),
+    addSoundEffect: (projectId, input) => run("sound-effect", () => window.editar.timeline.addSoundEffect({ projectId, ...input }), "El efecto de sonido fue añadido."),
+    updateSoundEffect: (projectId, effectId, input) => run("sound-effect", () => window.editar.timeline.updateSoundEffect({ projectId, effectId, ...input }), "El efecto de sonido fue actualizado."),
+    deleteSoundEffect: (projectId, effectId) => run("sound-effect", () => window.editar.timeline.deleteSoundEffect({ projectId, effectId }), "El efecto de sonido fue eliminado."),
     clearMessages: () => {
       setMessage("");
       setErrorMessage("");
@@ -273,6 +137,7 @@ function useTimelineEditor(): TimelineEditorState {
 
 export {
   useTimelineEditor,
+  type SoundEffectFormInput,
   type TimelineEditorState,
   type TimelineOperation,
 };
