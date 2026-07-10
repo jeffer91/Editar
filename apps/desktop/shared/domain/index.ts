@@ -9,7 +9,9 @@ Función o funciones:
 ========================================================= */
 
 export * from "./audio-analysis.js";
+export * from "./audio-mixing.js";
 export * from "./domain-error.js";
+export * from "./effect-operations.js";
 export * from "./effects.js";
 export * from "./jobs.js";
 export * from "./media-audio-operations.js";
@@ -24,3 +26,4 @@ export * from "./text-operations.js";
 export * from "./text.js";
 export * from "./timeline-operations.js";
 export * from "./timeline.js";
+export * from "./video-effects.js";
