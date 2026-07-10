@@ -5,11 +5,12 @@ Ruta o ubicación: /apps/desktop/renderer/src/screens/HomeScreen.tsx
 Función o funciones:
 - Mostrar el panel de inicio de la aplicación.
 - Presentar accesos directos hacia los módulos principales.
-- Informar el avance estructural del editor.
+- Informar la versión activa del núcleo de dominio.
 ========================================================= */
 
-import type { AppRoute } from "../../../shared/navigation-contracts";
+import { DOMAIN_SCHEMA_VERSION } from "../../../shared/domain";
 import type { RuntimeInfo } from "../../../shared/ipc-contracts";
+import type { AppRoute } from "../../../shared/navigation-contracts";
 import { AppIcon } from "../components/ui/AppIcon";
 
 interface HomeScreenProps {
@@ -24,21 +25,21 @@ const moduleCards = [
     icon: "projects" as const,
     title: "Proyectos",
     description: "Organiza videos, recursos y versiones de trabajo.",
-    status: "Estructura lista",
+    status: "Modelo listo",
   },
   {
     route: "editor" as const,
     icon: "editor" as const,
     title: "Editor",
     description: "Vista preparada para monitor, herramientas y timeline.",
-    status: "Estructura lista",
+    status: "Dominio listo",
   },
   {
     route: "library" as const,
     icon: "library" as const,
     title: "Biblioteca",
     description: "Recursos visuales, sonidos, textos y transiciones.",
-    status: "Estructura lista",
+    status: "Modelo listo",
   },
   {
     route: "settings" as const,
@@ -58,12 +59,12 @@ function HomeScreen({
     <div className="screen-stack">
       <section className="dashboard-hero">
         <div className="dashboard-hero__content">
-          <span className="section-label">BLOQUE 3 · INTERFAZ BASE</span>
-          <h2>Una base visual preparada para construir el editor</h2>
+          <span className="section-label">BLOQUE 4 · NÚCLEO DEL DOMINIO</span>
+          <h2>La aplicación ya entiende cómo se construye un proyecto</h2>
           <p>
-            La aplicación ya dispone de navegación real, pantallas independientes
-            y componentes reutilizables. Los siguientes bloques incorporarán la
-            lógica de proyectos, multimedia y edición sobre esta estructura.
+            Proyectos, medios, secuencias, pistas, clips, textos, efectos,
+            transiciones y trabajos ya poseen modelos validados. Los siguientes
+            bloques podrán persistir y modificar estos datos sin redefinirlos.
           </p>
           <div className="dashboard-hero__actions">
             <button
@@ -111,8 +112,8 @@ function HomeScreen({
             <AppIcon name="check" />
           </span>
           <div>
-            <small>Interfaz</small>
-            <strong>5 pantallas activas</strong>
+            <small>Modelo del proyecto</small>
+            <strong>Esquema v{DOMAIN_SCHEMA_VERSION}</strong>
           </div>
         </article>
         <article className="metric-card">
@@ -130,7 +131,9 @@ function HomeScreen({
           </span>
           <div>
             <small>Latencia interna</small>
-            <strong>{latencyMs === null ? "Consultando" : `${latencyMs} ms`}</strong>
+            <strong>
+              {latencyMs === null ? "Consultando" : `${latencyMs} ms`}
+            </strong>
           </div>
         </article>
       </section>
