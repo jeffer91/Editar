@@ -12,6 +12,7 @@ export * from "./audio-analysis.js";
 export * from "./domain-error.js";
 export * from "./effects.js";
 export * from "./jobs.js";
+export * from "./media-audio-operations.js";
 export * from "./media-derivative-operations.js";
 export * from "./media.js";
 export * from "./primitives.js";
