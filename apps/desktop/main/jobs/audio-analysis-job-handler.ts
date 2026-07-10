@@ -4,7 +4,7 @@ Ruta o ubicación: /apps/desktop/main/jobs/audio-analysis-job-handler.ts
 
 Función o funciones:
 - Validar y persistir resultados de detección de silencios.
-- Conservar el análisis anterior hasta que exista un resultado válido.
+- Conservar el análisis anterior durante fallos y reintentos.
 - Mantener la cola desacoplada de la entidad MediaAsset.
 ========================================================= */
 
@@ -13,6 +13,7 @@ import {
   parseEntityId,
   setMediaAudioAnalysis,
   type EntityId,
+  type JobErrorInfo,
   type JobRecord,
   type JsonValue,
 } from "../../shared/domain/index.js";
@@ -79,6 +80,14 @@ class AudioAnalysisJobHandler implements JobResultHandler {
     });
 
     await this.media.update(setMediaAudioAnalysis(asset, analysis));
+  }
+
+  async fail(_job: JobRecord, _error: JobErrorInfo): Promise<void> {
+    // Un fallo no elimina el último análisis acústico válido.
+  }
+
+  async prepareRetry(_job: JobRecord): Promise<void> {
+    // El reintento conserva el resultado anterior hasta completar uno nuevo.
   }
 }
 
