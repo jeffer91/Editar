@@ -1,0 +1,41 @@
+{
+  /* =========================================================
+  Nombre completo: tsconfig.renderer.json
+  Ruta o ubicación: /tsconfig.renderer.json
+
+  Función o funciones:
+  - Configurar TypeScript para React y el proceso renderer.
+  - Aplicar validaciones estrictas de tipos.
+  - Mantener aisladas las APIs propias del navegador.
+  ========================================================= */
+  "compilerOptions": {
+    "target": "ES2022",
+    "useDefineForClassFields": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "allowJs": false,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "baseUrl": ".",
+    "paths": {
+      "@renderer/*": ["apps/desktop/renderer/*"]
+    }
+  },
+  "include": [
+    "apps/desktop/renderer/**/*.ts",
+    "apps/desktop/renderer/**/*.tsx",
+    "apps/desktop/renderer/**/*.d.ts",
+    "vite.config.ts"
+  ]
+}
