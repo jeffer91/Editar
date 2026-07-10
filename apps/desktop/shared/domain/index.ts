@@ -14,6 +14,7 @@ export * from "./jobs.js";
 export * from "./media.js";
 export * from "./primitives.js";
 export * from "./project-document.js";
+export * from "./project-operations.js";
 export * from "./project.js";
 export * from "./text.js";
 export * from "./timeline.js";

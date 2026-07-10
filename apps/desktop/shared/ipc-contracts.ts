@@ -9,6 +9,7 @@ Función o funciones:
 ========================================================= */
 
 import type { DatabaseBridge } from "./database-contracts.js";
+import type { ProjectBridge } from "./project-management-contracts.js";
 
 const IPC_CHANNELS = Object.freeze({
   systemGetRuntimeInfo: "system:get-runtime-info",
@@ -16,6 +17,13 @@ const IPC_CHANNELS = Object.freeze({
   databaseGetStatus: "database:get-status",
   databaseCheckIntegrity: "database:check-integrity",
   databaseCreateBackup: "database:create-backup",
+  projectsList: "projects:list",
+  projectsCreate: "projects:create",
+  projectsOpen: "projects:open",
+  projectsRename: "projects:rename",
+  projectsDuplicate: "projects:duplicate",
+  projectsSetStatus: "projects:set-status",
+  projectsDelete: "projects:delete",
 } as const);
 
 type IpcChannel = (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS];
@@ -46,6 +54,8 @@ interface PingInfo {
 type IpcErrorCode =
   | "INVALID_REQUEST"
   | "UNTRUSTED_SENDER"
+  | "NOT_FOUND"
+  | "CONFLICT"
   | "DATABASE_ERROR"
   | "INTERNAL_ERROR";
 
@@ -74,6 +84,7 @@ interface SystemBridge {
 interface EditarBridge {
   readonly system: SystemBridge;
   readonly database: DatabaseBridge;
+  readonly projects: ProjectBridge;
 }
 
 export {

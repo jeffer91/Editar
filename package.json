@@ -17,6 +17,7 @@
     "test:database": "node --test tests/database.test.mjs",
     "test:ipc": "node --test tests/ipc-validation.test.mjs",
     "test:navigation": "node --test tests/navigation.test.mjs",
+    "test:projects": "node --test tests/project-management.test.mjs",
     "clean": "node scripts/clean.mjs",
     "start": "npm run build && electron .",
     "verify": "npm run build && npm test"

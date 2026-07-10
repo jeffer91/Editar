@@ -3,11 +3,13 @@ Nombre completo: App.tsx
 Ruta o ubicación: /apps/desktop/renderer/src/App.tsx
 
 Función o funciones:
-- Coordinar navegación, estado del sistema y pantallas.
+- Coordinar navegación, estado del sistema y proyecto activo.
 - Renderizar el shell visual compartido.
-- Mantener cada pantalla desacoplada de la infraestructura Electron.
+- Abrir proyectos seleccionados dentro del editor.
 ========================================================= */
 
+import { useState } from "react";
+import type { ProjectDocument } from "../../shared/domain";
 import type { AppRoute } from "../../shared/navigation-contracts";
 import { useHashNavigation } from "./app/use-hash-navigation";
 import { useSystemStatus } from "./app/use-system-status";
@@ -21,13 +23,25 @@ import { SettingsScreen } from "./screens/SettingsScreen";
 function App(): React.JSX.Element {
   const { currentRoute, navigate } = useHashNavigation();
   const systemStatus = useSystemStatus();
+  const [activeProject, setActiveProject] =
+    useState<ProjectDocument | null>(null);
+
+  const openProject = (document: ProjectDocument): void => {
+    setActiveProject(document);
+    navigate("editor");
+  };
 
   const renderScreen = (route: AppRoute): React.JSX.Element => {
     switch (route) {
       case "projects":
-        return <ProjectsScreen onNavigate={navigate} />;
+        return <ProjectsScreen onOpenProject={openProject} />;
       case "editor":
-        return <EditorScreen />;
+        return (
+          <EditorScreen
+            project={activeProject}
+            onChooseProject={() => navigate("projects")}
+          />
+        );
       case "library":
         return <LibraryScreen />;
       case "settings":

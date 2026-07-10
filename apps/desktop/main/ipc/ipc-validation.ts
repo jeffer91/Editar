@@ -69,6 +69,22 @@ function parseRequestEnvelope(value: unknown): RequestEnvelope {
   return { requestId, sentAt };
 }
 
+function parseRequestWithPayload(value: unknown): {
+  readonly request: RequestEnvelope;
+  readonly payload: unknown;
+} {
+  const request = parseRequestEnvelope(value);
+
+  if (!isRecord(value) || !("payload" in value)) {
+    throw new IpcRequestError(
+      "INVALID_REQUEST",
+      "La solicitud no contiene los datos requeridos.",
+    );
+  }
+
+  return Object.freeze({ request, payload: value.payload });
+}
+
 function createSuccess<T>(requestId: string, data: T): IpcSuccess<T> {
   return {
     ok: true,
@@ -105,5 +121,7 @@ export {
   createFailure,
   createSuccess,
   getSafeRequestId,
+  isRecord,
   parseRequestEnvelope,
+  parseRequestWithPayload,
 };

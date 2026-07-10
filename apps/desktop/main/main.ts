@@ -5,7 +5,7 @@ Ruta o ubicación: /apps/desktop/main/main.ts
 Función o funciones:
 - Iniciar el proceso principal de Electron.
 - Inicializar y cerrar SQLite de forma controlada.
-- Registrar IPC validado antes de cargar la interfaz.
+- Registrar IPC de sistema, base de datos y proyectos.
 - Gestionar correctamente el ciclo de vida de la aplicación.
 ========================================================= */
 
@@ -17,7 +17,9 @@ import {
   createDatabasePaths,
 } from "./database/database-service.js";
 import { registerDatabaseIpc } from "./ipc/register-database-ipc.js";
+import { registerProjectIpc } from "./ipc/register-project-ipc.js";
 import { registerSystemIpc } from "./ipc/register-system-ipc.js";
+import { ProjectManagementService } from "./projects/project-management-service.js";
 import { applyWindowSecurity } from "./security/window-security.js";
 import type { TrustedSourceOptions } from "./security/trusted-sources.js";
 
@@ -101,10 +103,16 @@ app
     await service.initialize();
     databaseService = service;
 
+    const projectService = new ProjectManagementService(service.projects);
+
     registerSystemIpc(trustedSources);
     registerDatabaseIpc({
       trustedSources,
       databaseService: service,
+    });
+    registerProjectIpc({
+      trustedSources,
+      projectService,
     });
     await createMainWindow(trustedSources);
 
