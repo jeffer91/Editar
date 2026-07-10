@@ -5,7 +5,7 @@ Ruta o ubicación: /apps/desktop/shared/domain/transition-operations.ts
 Función o funciones:
 - Crear, actualizar, consultar y eliminar transiciones entre clips.
 - Validar continuidad, compatibilidad visual y duración.
-- Mantener una sola transición por unión de clips.
+- Limpiar transiciones invalidadas por mover, recortar o dividir clips.
 ========================================================= */
 
 import { assertDomain } from "./domain-error.js";
@@ -53,6 +53,56 @@ function findTransitionBetween(
     (transition) =>
       transition.fromClipId === fromClipId &&
       transition.toClipId === toClipId,
+  );
+}
+
+function isTransitionPairValid(
+  document: ProjectDocument,
+  transition: TransitionInstance,
+): boolean {
+  const fromClip = document.clips.find(
+    (clip) => clip.id === transition.fromClipId,
+  );
+  const toClip = document.clips.find((clip) => clip.id === transition.toClipId);
+  if (!fromClip || !toClip) return false;
+  if (fromClip.trackId !== toClip.trackId) return false;
+  if (getClipEndUs(fromClip) !== toClip.timelineStartUs) return false;
+  if (
+    transition.durationUs > fromClip.durationUs ||
+    transition.durationUs > toClip.durationUs
+  ) {
+    return false;
+  }
+
+  const track = document.tracks.find((candidate) => candidate.id === fromClip.trackId);
+  if (!track || !["video", "overlay", "text"].includes(track.kind)) return false;
+
+  try {
+    return isVisualClip(document, fromClip.id) && isVisualClip(document, toClip.id);
+  } catch {
+    return false;
+  }
+}
+
+function pruneInvalidTransitions(
+  document: ProjectDocument,
+  now: Date | string = new Date(),
+): ProjectDocument {
+  const transitions = document.transitions.filter((transition) =>
+    isTransitionPairValid(document, transition),
+  );
+  if (transitions.length === document.transitions.length) return document;
+
+  const updated: ProjectDocument = Object.freeze({
+    ...document,
+    transitions: Object.freeze(transitions),
+  });
+  return finalizeTimelineDocument(
+    updated,
+    document.clips,
+    document.tracks,
+    document.textLayers,
+    now,
   );
 }
 
@@ -174,7 +224,6 @@ function removeTransition(
   const transition = document.transitions.find(
     (candidate) => candidate.id === transitionId,
   );
-
   assertDomain(
     transition !== undefined,
     "INVALID_RELATION",
@@ -193,7 +242,6 @@ function removeTransition(
       document.transitions.filter((candidate) => candidate.id !== transition.id),
     ),
   });
-
   return finalizeTimelineDocument(
     updated,
     document.clips,
@@ -207,6 +255,8 @@ export {
   TRANSITION_PRESET_IDS,
   assertTransitionPair,
   findTransitionBetween,
+  isTransitionPairValid,
+  pruneInvalidTransitions,
   removeTransition,
   setTransition,
   type SetTransitionInput,
