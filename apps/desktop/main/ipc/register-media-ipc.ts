@@ -4,8 +4,8 @@ Ruta o ubicación: /apps/desktop/main/ipc/register-media-ipc.ts
 
 Función o funciones:
 - Abrir el selector nativo y ejecutar operaciones multimedia.
-- Exponer análisis, derivados y diagnóstico de caché por IPC seguro.
-- Rechazar rutas y comandos enviados desde el renderer.
+- Exponer análisis acústico y reducción de silencios por IPC seguro.
+- Rechazar rutas, filtros y comandos enviados desde el renderer.
 ========================================================= */
 
 import {
@@ -15,6 +15,10 @@ import {
   type IpcMainInvokeEvent,
   type OpenDialogOptions,
 } from "electron";
+import type {
+  AudioAnalysisRequestResult,
+  SilenceReductionRequestResult,
+} from "../../shared/audio-processing-contracts.js";
 import {
   IPC_CHANNELS,
   type IpcResult,
@@ -29,6 +33,10 @@ import type {
   MediaEngineStatus,
 } from "../../shared/media-engine-contracts.js";
 import type { MediaImportResult } from "../../shared/media-import-contracts.js";
+import {
+  AudioAnalysisConflictError,
+  AudioAnalysisService,
+} from "../media/audio-analysis-service.js";
 import {
   MediaAnalysisConflictError,
   MediaAnalysisService,
@@ -47,9 +55,15 @@ import {
 } from "../media/media-import-service.js";
 import { SUPPORTED_MEDIA_EXTENSIONS } from "../media/media-file-inspector.js";
 import {
+  parseAnalyzeAudioInput,
   parseAnalyzeMediaInput,
   parseGenerateMediaDerivativesInput,
+  parseReduceSilenceInput,
 } from "../media/media-request-validation.js";
+import {
+  SilenceReductionConflictError,
+  SilenceReductionService,
+} from "../media/silence-reduction-service.js";
 import { ProjectNotFoundError } from "../projects/project-management-service.js";
 import { parseProjectIdInput } from "../projects/project-request-validation.js";
 import {
@@ -70,6 +84,8 @@ interface RegisterMediaIpcOptions {
   readonly trustedSources: TrustedSourceOptions;
   readonly mediaImportService: MediaImportService;
   readonly mediaAnalysisService: MediaAnalysisService;
+  readonly audioAnalysisService: AudioAnalysisService;
+  readonly silenceReductionService: SilenceReductionService;
   readonly mediaDerivativeService: MediaDerivativeService;
   readonly mediaCacheService: MediaCacheService;
 }
@@ -103,6 +119,8 @@ function handleMediaError<T>(
   if (
     error instanceof MediaImportConflictError ||
     error instanceof MediaAnalysisConflictError ||
+    error instanceof AudioAnalysisConflictError ||
+    error instanceof SilenceReductionConflictError ||
     error instanceof MediaDerivativeConflictError ||
     error instanceof MediaCacheConflictError
   ) {
@@ -145,6 +163,8 @@ function registerMediaIpc(options: RegisterMediaIpcOptions): void {
     trustedSources,
     mediaImportService,
     mediaAnalysisService,
+    audioAnalysisService,
+    silenceReductionService,
     mediaDerivativeService,
     mediaCacheService,
   } = options;
@@ -153,6 +173,8 @@ function registerMediaIpc(options: RegisterMediaIpcOptions): void {
     IPC_CHANNELS.mediaChooseAndImport,
     IPC_CHANNELS.mediaGetEngineStatus,
     IPC_CHANNELS.mediaAnalyze,
+    IPC_CHANNELS.mediaAnalyzeAudio,
+    IPC_CHANNELS.mediaReduceSilence,
     IPC_CHANNELS.mediaGenerateDerivatives,
     IPC_CHANNELS.mediaGetCacheStatus,
     IPC_CHANNELS.mediaClearCache,
@@ -215,6 +237,47 @@ function registerMediaIpc(options: RegisterMediaIpcOptions): void {
         );
       } catch (error) {
         return handleMediaError<MediaAnalysisRequestResult>(payload, error);
+      }
+    },
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.mediaAnalyzeAudio,
+    async (event, payload): Promise<IpcResult<AudioAnalysisRequestResult>> => {
+      try {
+        assertTrustedIpcSender(event, trustedSources);
+        const { request, payload: inputPayload } = parseRequestWithPayload(payload);
+        const input = parseAnalyzeAudioInput(inputPayload);
+        return createSuccess(
+          request.requestId,
+          await audioAnalysisService.enqueue(input.projectId, input.mediaId, {
+            thresholdDb: input.thresholdDb,
+            minSilenceUs: input.minSilenceMs * 1_000 as never,
+          }),
+        );
+      } catch (error) {
+        return handleMediaError<AudioAnalysisRequestResult>(payload, error);
+      }
+    },
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.mediaReduceSilence,
+    async (event, payload): Promise<IpcResult<SilenceReductionRequestResult>> => {
+      try {
+        assertTrustedIpcSender(event, trustedSources);
+        const { request, payload: inputPayload } = parseRequestWithPayload(payload);
+        const input = parseReduceSilenceInput(inputPayload);
+        return createSuccess(
+          request.requestId,
+          await silenceReductionService.enqueue(input.projectId, input.mediaId, {
+            mode: input.mode,
+            targetSilenceUs: input.targetSilenceMs * 1_000 as never,
+            edgePaddingUs: input.edgePaddingMs * 1_000 as never,
+          }),
+        );
+      } catch (error) {
+        return handleMediaError<SilenceReductionRequestResult>(payload, error);
       }
     },
   );
