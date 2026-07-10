@@ -314,12 +314,14 @@ async function runProbeMedia(job: JobRecord): Promise<void> {
     throw error;
   }
 
+  const serializableMetadata = JSON.parse(JSON.stringify(metadata)) as JsonValue;
+
   send({ type: "progress", progress: 95 });
   send({
     type: "completed",
     result: {
       mediaId,
-      metadata,
+      metadata: serializableMetadata,
       inspectedAt: new Date().toISOString(),
       ffprobeVersion,
     },
