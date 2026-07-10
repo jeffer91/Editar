@@ -5,7 +5,7 @@ Ruta o ubicación: /apps/desktop/renderer/src/main.tsx
 Función o funciones:
 - Iniciar la aplicación React.
 - Montar la interfaz dentro del elemento raíz.
-- Cargar estilos globales, SQLite y gestión de proyectos.
+- Cargar estilos globales, SQLite, proyectos y medios.
 ========================================================= */
 
 import { StrictMode } from "react";
@@ -16,6 +16,7 @@ import "./app-layout.css";
 import "./screens.css";
 import "./database-status.css";
 import "./project-management.css";
+import "./media-import.css";
 
 const rootElement = document.getElementById("root");
 

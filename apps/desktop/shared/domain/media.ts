@@ -4,8 +4,8 @@ Ruta o ubicación: /apps/desktop/shared/domain/media.ts
 
 Función o funciones:
 - Definir videos, audios e imágenes importadas.
-- Validar metadatos técnicos obtenidos por FFprobe.
-- Mantener separados archivo original, proxy y datos derivados.
+- Separar el registro inicial del análisis técnico con FFprobe.
+- Mantener archivo original, metadatos y derivados sin modificar la fuente.
 ========================================================= */
 
 import { assertDomain } from "./domain-error.js";
@@ -21,6 +21,19 @@ import {
 
 type MediaKind = "video" | "audio" | "image";
 type MediaAvailability = "online" | "missing" | "offline";
+type MediaInspectionStatus = "pending" | "ready" | "failed";
+
+interface MediaInspection {
+  readonly status: MediaInspectionStatus;
+  readonly error?: string;
+  readonly inspectedAt?: IsoDateTime;
+}
+
+interface MediaInspectionInput {
+  readonly status: MediaInspectionStatus;
+  readonly error?: string;
+  readonly inspectedAt?: Date | string | IsoDateTime;
+}
 
 interface RationalFrameRate {
   readonly numerator: number;
@@ -77,10 +90,14 @@ interface MediaAsset {
   readonly kind: MediaKind;
   readonly fileName: string;
   readonly sourcePath: string;
+  readonly extension: string;
+  readonly mimeType: string;
   readonly sizeBytes: number;
+  readonly sourceModifiedAt?: IsoDateTime;
   readonly contentHash?: string;
   readonly availability: MediaAvailability;
-  readonly metadata: MediaMetadata;
+  readonly inspection: MediaInspection;
+  readonly metadata?: MediaMetadata;
   readonly derivatives: readonly MediaDerivative[];
   readonly importedAt: IsoDateTime;
 }
@@ -88,17 +105,24 @@ interface MediaAsset {
 interface CreateMediaAssetInput {
   readonly id?: EntityId<"media">;
   readonly projectId: EntityId<"project">;
+  readonly kind?: MediaKind;
   readonly fileName: string;
   readonly sourcePath: string;
+  readonly extension?: string;
+  readonly mimeType?: string;
   readonly sizeBytes: number;
+  readonly sourceModifiedAt?: Date | string;
   readonly contentHash?: string;
   readonly availability?: MediaAvailability;
-  readonly metadata: MediaMetadata;
+  readonly inspection?: MediaInspectionInput;
+  readonly metadata?: MediaMetadata;
   readonly derivatives?: readonly MediaDerivative[];
   readonly importedAt?: Date | string;
 }
 
 const HASH_PATTERN = /^[a-f0-9]{64}$/i;
+const EXTENSION_PATTERN = /^[a-z0-9]{1,12}$/i;
+const MIME_PATTERN = /^[a-z0-9][a-z0-9!#$&^_.+-]*\/[a-z0-9][a-z0-9!#$&^_.+-]*$/i;
 
 function validatePositiveInteger(
   value: number,
@@ -201,6 +225,57 @@ function validateDerivative(value: MediaDerivative): MediaDerivative {
   });
 }
 
+function validateInspection(
+  value: MediaInspectionInput,
+  metadata: MediaMetadata | undefined,
+): MediaInspection {
+  if (value.status === "ready") {
+    assertDomain(
+      metadata !== undefined,
+      "REQUIRED",
+      "metadata",
+      "Un recurso analizado debe incluir metadatos técnicos.",
+    );
+  }
+
+  if (value.status === "pending") {
+    assertDomain(
+      metadata === undefined,
+      "INVALID_RELATION",
+      "inspection.status",
+      "Un recurso pendiente todavía no debe contener metadatos técnicos.",
+    );
+  }
+
+  if (value.status === "failed") {
+    assertDomain(
+      typeof value.error === "string" && value.error.trim().length > 0,
+      "REQUIRED",
+      "inspection.error",
+      "Un análisis fallido debe registrar una explicación.",
+    );
+  }
+
+  return Object.freeze({
+    status: value.status,
+    error: value.error?.trim(),
+    inspectedAt: value.inspectedAt
+      ? toIsoDateTime(value.inspectedAt, "inspection.inspectedAt")
+      : undefined,
+  });
+}
+
+function defaultMimeType(kind: MediaKind): string {
+  switch (kind) {
+    case "video":
+      return "video/unknown";
+    case "audio":
+      return "audio/unknown";
+    case "image":
+      return "image/unknown";
+  }
+}
+
 function createMediaAsset(input: CreateMediaAssetInput): MediaAsset {
   assertDomain(
     input.sourcePath.trim().length > 0,
@@ -219,24 +294,65 @@ function createMediaAsset(input: CreateMediaAssetInput): MediaAsset {
     );
   }
 
-  const metadata = validateMetadata(input.metadata);
+  const metadata = input.metadata ? validateMetadata(input.metadata) : undefined;
+  const kind = input.kind ?? metadata?.kind;
 
   assertDomain(
-    metadata.kind === input.metadata.kind,
-    "INVALID_RELATION",
-    "metadata.kind",
-    "El tipo de metadatos no coincide con el recurso.",
+    kind !== undefined,
+    "REQUIRED",
+    "kind",
+    "El tipo de recurso multimedia es obligatorio.",
+  );
+
+  if (metadata) {
+    assertDomain(
+      metadata.kind === kind,
+      "INVALID_RELATION",
+      "metadata.kind",
+      "El tipo de metadatos no coincide con el recurso.",
+    );
+  }
+
+  const inspection = validateInspection(
+    input.inspection ?? {
+      status: metadata ? "ready" : "pending",
+      inspectedAt: metadata ? input.importedAt ?? new Date() : undefined,
+    },
+    metadata,
+  );
+  const extension = (input.extension ?? input.fileName.split(".").at(-1) ?? "bin")
+    .replace(/^\./, "")
+    .toLowerCase();
+  const mimeType = (input.mimeType ?? defaultMimeType(kind)).toLowerCase();
+
+  assertDomain(
+    EXTENSION_PATTERN.test(extension),
+    "INVALID_FORMAT",
+    "extension",
+    "La extensión del archivo no tiene un formato válido.",
+  );
+  assertDomain(
+    MIME_PATTERN.test(mimeType),
+    "INVALID_FORMAT",
+    "mimeType",
+    "El tipo MIME del archivo no tiene un formato válido.",
   );
 
   return Object.freeze({
     id: input.id ?? createEntityId("media"),
     projectId: input.projectId,
-    kind: metadata.kind,
+    kind,
     fileName: normalizeName(input.fileName, "fileName", 255),
     sourcePath: input.sourcePath.trim(),
+    extension,
+    mimeType,
     sizeBytes: input.sizeBytes,
+    sourceModifiedAt: input.sourceModifiedAt
+      ? toIsoDateTime(input.sourceModifiedAt, "sourceModifiedAt")
+      : undefined,
     contentHash: input.contentHash?.toLowerCase(),
     availability: input.availability ?? "online",
+    inspection,
     metadata,
     derivatives: Object.freeze(
       (input.derivatives ?? []).map(validateDerivative),
@@ -246,7 +362,11 @@ function createMediaAsset(input: CreateMediaAssetInput): MediaAsset {
 }
 
 function getMediaDuration(asset: MediaAsset): Microseconds | null {
-  return asset.metadata.kind === "image" ? null : asset.metadata.durationUs;
+  if (!asset.metadata || asset.metadata.kind === "image") {
+    return null;
+  }
+
+  return asset.metadata.durationUs;
 }
 
 export {
@@ -254,6 +374,7 @@ export {
   getMediaDuration,
   validateAudioStream,
   validateFrameRate,
+  validateInspection,
   validateMetadata,
   type AudioMediaMetadata,
   type AudioStreamInfo,
@@ -262,6 +383,9 @@ export {
   type MediaAsset,
   type MediaAvailability,
   type MediaDerivative,
+  type MediaInspection,
+  type MediaInspectionInput,
+  type MediaInspectionStatus,
   type MediaKind,
   type MediaMetadata,
   type RationalFrameRate,

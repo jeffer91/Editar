@@ -4,16 +4,19 @@ Ruta o ubicación: /apps/desktop/renderer/src/screens/EditorScreen.tsx
 
 Función o funciones:
 - Mostrar la estructura visual del editor.
-- Recibir y presentar el proyecto activo seleccionado.
+- Importar y presentar medios del proyecto activo.
 - Guiar al usuario a Proyectos cuando no existe uno abierto.
 ========================================================= */
 
 import type { ProjectDocument, TrackKind } from "../../../shared/domain";
+import { useMediaImport } from "../app/use-media-import";
+import { ProjectMediaPanel } from "../components/media/ProjectMediaPanel";
 import { AppIcon } from "../components/ui/AppIcon";
 
 interface EditorScreenProps {
   readonly project: ProjectDocument | null;
   readonly onChooseProject: () => void;
+  readonly onProjectChange: (project: ProjectDocument) => void;
 }
 
 const trackLabels: Readonly<Record<TrackKind, string>> = Object.freeze({
@@ -27,7 +30,10 @@ const trackLabels: Readonly<Record<TrackKind, string>> = Object.freeze({
 function EditorScreen({
   project,
   onChooseProject,
+  onProjectChange,
 }: EditorScreenProps): React.JSX.Element {
+  const mediaImport = useMediaImport();
+
   if (!project) {
     return (
       <div className="screen-stack screen-stack--editor">
@@ -58,6 +64,14 @@ function EditorScreen({
     (left, right) => left.order - right.order,
   );
 
+  const importMedia = async (): Promise<void> => {
+    const updatedProject = await mediaImport.chooseAndImport(project.project.id);
+
+    if (updatedProject) {
+      onProjectChange(updatedProject);
+    }
+  };
+
   return (
     <div className="screen-stack screen-stack--editor">
       <section className="editor-notice">
@@ -81,40 +95,14 @@ function EditorScreen({
       </section>
 
       <section className="editor-workbench" aria-label="Estructura del editor">
-        <aside className="editor-panel editor-panel--media">
-          <div className="editor-panel__heading">
-            <div>
-              <span className="section-label">RECURSOS</span>
-              <h2>Medios</h2>
-            </div>
-            <span className="panel-count">{project.media.length}</span>
-          </div>
-
-          <div className="editor-tool-list">
-            <div className="editor-tool-item">
-              <AppIcon name="video" size={18} />
-              Videos
-            </div>
-            <div className="editor-tool-item">
-              <AppIcon name="audio" size={18} />
-              Audio
-            </div>
-            <div className="editor-tool-item">
-              <AppIcon name="text" size={18} />
-              Textos
-            </div>
-            <div className="editor-tool-item">
-              <AppIcon name="transition" size={18} />
-              Transiciones
-            </div>
-          </div>
-
-          <div className="editor-panel__placeholder">
-            {project.media.length === 0
-              ? "Los archivos importados aparecerán aquí."
-              : `${project.media.length} recursos disponibles en el proyecto.`}
-          </div>
-        </aside>
+        <ProjectMediaPanel
+          project={project}
+          importing={mediaImport.importing}
+          errorMessage={mediaImport.errorMessage}
+          lastResult={mediaImport.lastResult}
+          onImport={() => void importMedia()}
+          onClearResult={mediaImport.clearResult}
+        />
 
         <div className="editor-center">
           <div className="editor-monitor">
