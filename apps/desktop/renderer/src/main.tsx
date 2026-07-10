@@ -5,14 +5,15 @@ Ruta o ubicación: /apps/desktop/renderer/src/main.tsx
 Función o funciones:
 - Iniciar la aplicación React.
 - Montar la interfaz dentro del elemento raíz.
-- Cargar estilos base y estilos específicos del IPC.
+- Cargar estilos globales, del shell y de las pantallas.
 ========================================================= */
 
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import "./styles.css";
-import "./ipc-status.css";
+import "./app-layout.css";
+import "./screens.css";
 
 const rootElement = document.getElementById("root");
 
